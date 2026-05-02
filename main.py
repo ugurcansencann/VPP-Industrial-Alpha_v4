@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database import engine, Base, SessionLocal, MeterData  # MeterData yerine projedeki model ismini (MeterReading gibi) kontrol et
 import crud
 from kpi_engine import calculate_vpp_performance
+from services.epias_service import fetch_tomorrow_ptf
 
 # --- VERİTABANI BAĞLANTI YÖNETİCİSİ ---
 # Bu fonksiyon Depends(get_db) için gereklidir
@@ -20,7 +21,7 @@ def get_db():
 # Tabloları oluştur (Eğer tablolar silindiyse otomatik oluşturur)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Wattica VPP-Industrial-Alpha API")
+app = FastAPI(title="VPP-Industrial-Alpha API")
 
 # Redis bağlantısı
 cache = redis.Redis(host='redis', port=6379, db=0)
@@ -146,50 +147,44 @@ from datetime import datetime, timedelta
 # --- PLAN A/B DİNAMİK VERİ SERVİSİ ---
 @app.get("/api/vpp-data")
 def get_vpp_data(mode: str = Query("B", regex="^[AB]$"), db: Session = Depends(get_db)):
-    """
-    Frontend'deki stratejik/operasyonel geçişin ana veri kaynağı.
-    """
     if mode == "A":
-        # PLAN A: Stratejik Yarın Tahminleri
-        yarin_verisi = []
+        # Plan A: Stratejik (Yarın)
+        forecasts = crud.get_tomorrow_forecasts(db)
         
-        # 24 saatlik döngü (00:00'dan 23:00'e)
-        for i in range(24):
-            # ML modelini simüle eden dinamik yük (kWh)
-            # 100 base değer üzerine saate bağlı ve rastgele dalgalanma
-            base_load = 120 if (8 <= i <= 18) else 80 # Mesai saatleri yükü
-            load_fluctuation = random.uniform(0.8, 1.2)
-            predicted_val = round(base_load * load_fluctuation, 2)
-            
-            # Yarının beklenen PTF fiyatı (₺)
-            # Akşam saatlerinde (17-21) fiyatların arttığı bir senaryo
-            base_price = 2600 if (17 <= i <= 21) else 2400
-            price_fluctuation = random.uniform(0.95, 1.1)
-            ptf_val = round(base_price * price_fluctuation, 2)
-            
-            yarin_verisi.append({
-                "hour": f"{i:02d}:00",
-                "predicted_load": predicted_val, # Grafiğin arayacağı anahtar
-                "ptf": ptf_val,                # Fiyat çizgisi için
-                "action": "YÜK KAYDIR" if ptf_val > 2650 else "NORMAL"
-            })
-            
-        return {"mode": "A", "data": yarin_verisi}
+        if not forecasts:
+            ptf_list = fetch_tomorrow_ptf()
+            if ptf_list:
+                # 120 kWh baz yük üzerinden %20 varyasyonla simülasyon (Senin modelinle değiştirilebilir)
+                sim_loads = [round(120 * random.uniform(0.8, 1.2), 2) for _ in range(24)]
+                crud.save_vpp_forecast(db, ptf_list, sim_loads)
+                forecasts = crud.get_tomorrow_forecasts(db)
+            else:
+                return {"error": "EPİAŞ verisi henüz hazır değil (Genelde 14:00'ten sonra)."}
+
+        return {
+            "mode": "A", 
+            "data": [{
+                "hour": f.hour,
+                "predicted_load": f.predicted_load,
+                "ptf": f.expected_price,
+                "action": "YÜK KAYDIR" if f.expected_price > 2650 else "NORMAL"
+            } for f in forecasts]
+        }
     
     else:
-        # PLAN B: Bugünün Gerçekleşen Verileri (Mevcut kodunuzu koruyun)
+        # Plan B: Operasyonel (Bugün)
+        # Frontend'deki renderTableUnified fonksiyonunun beklediği alan adlarını ekledim
         history = crud.get_readings(db, limit=24)
-        operasyonel_veri = []
-        for h in history:
-            operasyonel_veri.append({
-                "hour": h.timestamp.strftime("%H:%M"),
+        return {
+            "mode": "B", 
+            "data": [{
+                "hour": h.timestamp.strftime("%H:%M") if h.timestamp else "--:--",
                 "actual_load": h.consumption,
                 "ptf": h.price,
-                "smf": getattr(h, 'smf', h.price),
-                "yal": getattr(h, 'yal', 0),
-                "yat": getattr(h, 'yat', 0)
-            })
-        return {"mode": "B", "data": operasyonel_veri}
+                "smf": getattr(h, 'smf', h.price * 1.1), # SMF yoksa simüle et
+                "status": "ENERJİ AÇIĞI" if getattr(h, 'smf', 0) > h.price else "ENERJİ FAZLASI"
+            } for h in history]
+        }
     
 
 @app.get("/dashboard", response_class=HTMLResponse)
