@@ -9,3 +9,7 @@ Virtual Power Plant (Sanal Güç Santrali) Optimizasyon ve Veri Yönetim Sistemi
 - **Containerization:** Docker & Docker Compose
 - **ML & Optimization:** Scikit-learn, PuLP
 
+- Plan A (Stratejik) ve Plan B (Reaktif) operasyon modülleri eklendi.
+- EPİAŞ PTF ve ML bazlı tüketim tahmin simülasyonu entegre edildi.
+- FastAPI backend ve Chart.js frontend veri köprüsü oluşturuldu.
+- Üretim odaklı yük kaydırma karar mekanizması eklendi.
