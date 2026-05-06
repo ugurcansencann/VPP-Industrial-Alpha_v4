@@ -39,7 +39,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy  # Sadece db sağlıklı olduğunda başla
+        
   # Airflow
   airflow:
     image: apache/airflow:2.7.1-python3.9

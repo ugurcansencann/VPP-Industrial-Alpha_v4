@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
 import models 
-import requests
 import pandas as pd
-from sqlalchemy.orm import Session
-from models import VPPForecast # Model ismine göre güncelle
+from models import VPPForecast
+
+# --- METER READING FONKSİYONLARI (PLAN B / DASHBOARD) ---
 
 def get_readings(db: Session, limit: int = None, days: int = None):
     """Genel veri çekme fonksiyonu (Dashboard ve Analiz için)"""
@@ -19,7 +19,41 @@ def get_readings(db: Session, limit: int = None, days: int = None):
     
     return query.all()
 
-def create_meter_reading(db: Session, timestamp, meter_id, consumption, price, smf=None, yal=None, yat=None):
+def get_vpp_forecast_by_date(db: Session, target_date: date):
+    """Plan A grafiği için verileri SAAT SIRALI ve organize döner."""
+    # .order_by ekledik çünkü grafik 05:00 -> 01:00 diye atlarsa çizgi bozulur
+    results = db.query(VPPForecast).filter(
+        VPPForecast.date == target_date
+    ).order_by(VPPForecast.hour).all() 
+    
+    # Frontend dostu format
+    formatted_data = {
+        "ptf": [r.value for r in results if r.datatype_id == 1],
+        "load": [r.value for r in results if r.datatype_id == 2],
+        "hours": sorted(list(set([r.hour for r in results]))) # Benzersiz ve sıralı saatler
+    }
+    return formatted_data
+
+def get_24h_data_by_type(db: Session, target_date: date, datatype_id: int, model):
+    """
+    Belirli bir tablo (model) ve veri tipi (datatype_id) için 24 saatlik veriyi çeker.
+    model: MarketData veya VPPForecast tablosu
+    datatype_id: 1 (PTF), 2 (LOAD), 3 (SMF)
+    """
+    try:
+        results =  db.query(model).filter(
+            model.date == target_date,
+            model.datatype_id == datatype_id
+        ).order_by(model.date, model.hour).all()
+        # Eğer veri 24 saatten eksikse veya hiç yoksa log basabilirsin
+        if len(results) < 24:
+            print(f"UYARI: {target_date} tarihi için sadece {len(results)} saatlik PTF verisi bulundu.")
+        return results
+    except Exception as e:
+        print(f"HATA: get_24h_ptf_data çalışırken hata oluştu: {e}")
+        return []
+
+def insert_meter_reading(db: Session, timestamp, meter_id, consumption, price, smf=None, yal=None, yat=None):
     """Yeni IoT veya Piyasa verisi kaydetme fonksiyonu"""
     db_reading = models.MeterReading(
         timestamp=timestamp,
@@ -35,128 +69,139 @@ def create_meter_reading(db: Session, timestamp, meter_id, consumption, price, s
     db.refresh(db_reading)
     return db_reading
 
-def get_recent_readings(db: Session, limit: int = 10):
-    """Dashboard'daki tablo için en güncel verileri getirir"""
-    return db.query(models.MeterReading).order_by(models.MeterReading.timestamp.desc()).limit(limit).all()
+def insert_only_vpp_forecast(db: Session, target_date: date, hour: str, datatype_id: int, value: float):
+    """Tekli tahmin verisi kaydetme veya güncelleme"""
+    # Mevcut veri varsa sil (UniqueConstraint ihlalini önlemek için)
+    db.query(VPPForecast).filter(
+        VPPForecast.date == target_date,
+        VPPForecast.hour == hour,
+        VPPForecast.datatype_id == datatype_id
+    ).delete()
 
-def get_last_24h_prices(db: Session):
-    """DB'deki son 24 saatlik PTF (price) değerlerini getirir."""
-    one_day_ago = datetime.now() - timedelta(days=1)
-    return db.query(models.MeterReading)\
-        .filter(models.MeterReading.timestamp >= one_day_ago)\
-        .order_by(models.MeterReading.timestamp.asc())\
-        .all()
-
-def save_ml_forecast(db: Session, timestamp: datetime, predicted_val: float, expected_price: float):
-    """ML modelinden gelen tahmin çıktılarını DB'ye yazar."""
-    db_forecast = models.VPPForecast(
-        timestamp=timestamp,
-        predicted_consumption=predicted_val,
-        expected_price=expected_price
+    db_forecast = VPPForecast(
+        date=target_date,
+        hour=hour,
+        datatype_id=datatype_id,
+        value=value
     )
     db.add(db_forecast)
     db.commit()
     db.refresh(db_forecast)
     return db_forecast
 
-def get_tomorrow_forecasts(db: Session):
-    """DB'den yarın için kaydedilmiş tahmin çıktılarını çeker."""
-    tomorrow = datetime.now().date() + timedelta(days=1)
-    return db.query(models.VPPForecast)\
-        .filter(models.VPPForecast.date >= datetime.combine(tomorrow, datetime.min.time()))\
-        .order_by(models.VPPForecast.date.asc())\
-        .all()
 
+# --- ESKİ FONKSİYONLARIN YENİ YAPIYA ADAPTASYONU ---
 
-def get_tomorrow_ptf():
+def insert_combined_vpp_forecasts(db: Session, ptf_list: list, load_list: list, target_date: date):
     """
-    EPİAŞ Şeffaflık Platformu üzerinden yarınki PTF verilerini çeker.
+    Hem PTF hem LOAD verilerini yeni tablo yapısına göre kaydeder.
+    ptf_list: [{'hour': '00:00', 'price': 2500}, ...]
+    load_list: [10.5, 11.2, ...] (24 adet float)
     """
-    # Yarınki tarihi belirle
-    tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    
-    # EPİAŞ Şeffaflık Platformu Üretim/Fiyat API URL (Örnek mimari)
-    url = "https://seffaflik.epias.com.tr/transparency/service/market/day-ahead-mcp"
-    
-    params = {
-        "startDate": tomorrow,
-        "endDate": tomorrow,
-        "displayLanguage": "tr"
-    }
-
     try:
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            data = response.json()
-            # Veriyi işle ve DataFrame'e çevir
-            df = pd.DataFrame(data['body']['dayAheadMCPList'])
-            # Sadece saat ve fiyat kolonlarını alalım
-            df = df[['date', 'price']]
-            print(f"{tomorrow} tarihi için {len(df)} saatlik veri başarıyla çekildi.")
-            return df
-        else:
-            print(f"Hata: EPİAŞ servisi {response.status_code} koduyla yanıt verdi.")
-            return None
-    except Exception as e:
-        print(f"Bağlantı hatası: {e}")
-        return None
-    
+        # Önce o tarihe ait eski PTF(1) ve LOAD(2) verilerini temizle
+        db.query(VPPForecast).filter(
+            VPPForecast.date == target_date,
+            VPPForecast.datatype_id.in_([1, 2])
+        ).delete()
 
+        new_records = []
+        for i in range(24):
+            hour_str = f"{i:02d}:00"
+            
+            # PTF Kaydı (ID: 1)
+            ptf_val = ptf_list[i].get('price', 0.0) if i < len(ptf_list) else 0.0
+            new_records.append(VPPForecast(date=target_date, hour=hour_str, datatype_id=1, value=ptf_val))
+            
+            # LOAD Kaydı (ID: 2)
+            load_val = load_list[i] if i < len(load_list) else 0.0
+            new_records.append(VPPForecast(date=target_date, hour=hour_str, datatype_id=2, value=load_val))
 
-def save_tomorrow_forecasts(db: Session, ptf_data: list, load_forecasts: list):
-    """
-    EPİAŞ fiyatlarını ve ML yük tahminlerini DB'ye kaydeder.
-    """
-    for i in range(24):
-        new_entry = VPPForecast(
-            hour=i,
-            expected_price=ptf_data[i]['price'],
-            predicted_consumption=load_forecasts[i],
-            date=(datetime.now() + timedelta(days=1)).date()
-        )
-        db.add(new_entry)
-    db.commit()
-# Test etmek için:
-# if __name__ == "__main__":
-#     print(get_tomorrow_ptf())
-
-
-def save_vpp_forecast(db: Session, ptf_data: list, predicted_loads: list):
-    tomorrow = (datetime.now() + timedelta(days=1)).date()
-    
-    # 1. Mevcut veriyi temizle
-    db.query(models.VPPForecast).filter(models.VPPForecast.date == tomorrow).delete()
-    
-    # 2. Veri kontrolü ekle
-    if not ptf_data or len(ptf_data) == 0:
-        print("UYARI: EPİAŞ'tan fiyat verisi alınamadı, işlem iptal edildi.")
-        return
-
-    for i in range(24):
-        hour_str = f"{i:02d}:00"
-        
-        # 'price' anahtarının varlığını kontrol et
-        try:
-            current_price = ptf_data[i].get('price', 0.0) if i < len(ptf_data) else 0.0
-        except AttributeError:
-            current_price = 0.0 # Eğer ptf_data bir dict listesi değilse
-        
-        db_forecast = models.VPPForecast(
-            date=tomorrow,
-            hour=hour_str,
-            expected_price=current_price,
-            predicted_load=predicted_loads[i] if i < len(predicted_loads) else 0.0
-        )
-        db.add(db_forecast)
-    
-    try:
+        db.add_all(new_records)
         db.commit()
-        print(f"BAŞARILI: {tomorrow} tarihi için 24 saatlik veri kaydedildi.")
+        print(f"BAŞARILI: {target_date} için PTF ve LOAD verileri kaydedildi.")
     except Exception as e:
         db.rollback()
-        print(f"HATA: Veritabanı kaydı başarısız: {e}")
+        print(f"HATA: Kayıt sırasında sorun oluştu: {e}")
 
-        
-def get_vpp_forecast_by_date(db: Session, target_date: date):
-    """Belirli bir tarihteki tüm tahmin verilerini getirir."""
-    return db.query(models.VPPForecast).filter(models.VPPForecast.date == target_date).all()
+# --- VPP FORECAST FONKSİYONLARI (PLAN A / STRATEJİK) ---
+def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, datatype_id: int):
+    try:
+        # 1. Tarih Formatı: EPİAŞ'tan gelen 'date' sütununu Python 'date' objesine çevir
+        if not pd.api.types.is_datetime64_any_dtype(df['date']):
+            df['date'] = pd.to_datetime(df['date']).dt.date
+
+        target_dates = df['date'].unique()
+
+        # 2. Temizlik: Mevcut kayıtları sil (Overwrite mantığı)
+        db.query(VPPForecast).filter(
+            VPPForecast.date.in_(target_dates),
+            VPPForecast.datatype_id == datatype_id
+        ).delete(synchronize_session=False)
+
+        # 3. Saat Formatı: EPİAŞ'tan bazen "0", "1" gibi rakam gelebilir.
+        # Bunu "00:00", "01:00" formatına (String(5)) zorlayalım.
+        def format_hour(h):
+            h_str = str(h).split(':')[0] # Eğer 14:00:00 gelirse 14'ü al
+            return f"{int(h_str):02d}:00"
+
+        records = [
+            VPPForecast(
+                date=row['date'],
+                hour=format_hour(row['hour']), 
+                datatype_id=datatype_id,
+                value=float(row['value'])
+            )
+            for _, row in df.iterrows()
+        ]
+
+        db.bulk_save_objects(records)
+        db.commit()
+        return len(records)
+    except Exception as e:
+        db.rollback()
+        print(f"HATA: {e}")
+        raise e
+
+from models import MarketData
+
+def bulk_insert_market_data(db: Session, df: pd.DataFrame, datatype_id: int = None):
+    """
+    Pandas DataFrame verisini market_data tablosuna toplu olarak ekler.
+    data_name: 'PTF', 'SMF', 'YAL', 'YAT' gibi...
+    """
+    try:
+        # Önce mükerrer kayıt hatası almamak için o tarihteki aynı isimli verileri temizleyebilirsin
+        target_dates = df['date'].unique()
+        db.query(MarketData).filter(
+            MarketData.date.in_(target_dates),
+            MarketData.datatype_id == datatype_id
+        ).delete(synchronize_session=False)
+
+        records = [
+            MarketData(
+                date=row['date'],
+                hour=row['hour'],
+                datatype_id=datatype_id,
+                value=row['value']
+            )
+            for _, row in df.iterrows()
+        ]
+        db.bulk_save_objects(records)
+        db.commit()
+        return len(records)
+    except Exception as e:
+        db.rollback()
+        print(f"Market Data Insert Hatası: {e}")
+        raise e
+
+
+
+
+def delete_forecasts_by_date(db: Session, target_date: date, datatype_id: int = None):
+    """Belirli bir tarihteki verileri temizler"""
+    query = db.query(VPPForecast).filter(VPPForecast.date == target_date)
+    if datatype_id:
+        query = query.filter(VPPForecast.datatype_id == datatype_id)
+    query.delete()
+    db.commit()

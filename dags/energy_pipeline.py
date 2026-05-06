@@ -1,10 +1,3 @@
-import sys
-import os
-sys.path.append('/app')
-
-# Şimdi import yapabilirsiniz
-from database import SessionLocal
-
 from database import SessionLocal
 import os, random, sys, requests, crud
 from airflow import DAG

@@ -4,10 +4,10 @@ from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value
 from fastapi.responses import HTMLResponse
 # Veritabanı bileşenleri
 from sqlalchemy.orm import Session
-from database import engine, Base, SessionLocal, MeterData  # MeterData yerine projedeki model ismini (MeterReading gibi) kontrol et
+from database import engine, Base, SessionLocal
 import crud
+from models import MeterReading
 from kpi_engine import calculate_vpp_performance
-from services.epias_service import fetch_tomorrow_ptf
 
 # --- VERİTABANI BAĞLANTI YÖNETİCİSİ ---
 # Bu fonksiyon Depends(get_db) için gereklidir
@@ -139,53 +139,90 @@ def get_history(db: Session = Depends(get_db)):
     # listeyi ters çevirip (Pythonic slice ile) gönderiyoruz.
     return history[::-1]
 
+from models import MarketData, VPPForecast
+@app.get("/api/v1/market-data/planA")
+async def get_latest_market_data_planA(db: Session = Depends(get_db)):
+    now = datetime.now()
+    
+    # 1. Hedef Tarih Belirleme (14:00 Kuralı)
+    # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
+    if now.hour >= 14:
+        target_date = now.date() + timedelta(days=0)
+    else:
+        target_date = now.date()
+    
+    # 2. Verileri Çek
+    ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
+    load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
+    
+    # 3. Fallback (Yarın verisi henüz manuel girilmemişse bugüne dön)
+    if not ptf_results and target_date > now.date():
+        target_date = now.date()
+        ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
+        load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
 
+    # 4. Veri Birleştirme (Frontend'in beklediği format)
+    # 24 saatlik bir sözlük oluşturarak ptf ve load'u eşleştiriyoruz
+    combined = {f"{i:02d}:00": {"hour": f"{i:02d}:00", "ptf": 0.0, "load": 0.0} for i in range(24)}
+    
+    for r in ptf_results:
+        combined[r.hour]["ptf"] = round(float(r.value), 2)
+    
+    for r in load_results:
+        combined[r.hour]["load"] = round(float(r.value), 2)
 
+    return {
+        "status": "success",
+        "date": target_date.strftime('%Y-%m-%d'),
+        "is_tomorrow": target_date > now.date(),
+        "data": list(combined.values())
+    }
 
 from fastapi import FastAPI, Query
 from datetime import datetime, timedelta
-# --- PLAN A/B DİNAMİK VERİ SERVİSİ ---
-@app.get("/api/vpp-data")
-def get_vpp_data(mode: str = Query("B", regex="^[AB]$"), db: Session = Depends(get_db)):
-    if mode == "A":
-        # Plan A: Stratejik (Yarın)
-        forecasts = crud.get_tomorrow_forecasts(db)
-        
-        if not forecasts:
-            ptf_list = fetch_tomorrow_ptf()
-            if ptf_list:
-                # 120 kWh baz yük üzerinden %20 varyasyonla simülasyon (Senin modelinle değiştirilebilir)
-                sim_loads = [round(120 * random.uniform(0.8, 1.2), 2) for _ in range(24)]
-                crud.save_vpp_forecast(db, ptf_list, sim_loads)
-                forecasts = crud.get_tomorrow_forecasts(db)
-            else:
-                return {"error": "EPİAŞ verisi henüz hazır değil (Genelde 14:00'ten sonra)."}
-
-        return {
-            "mode": "A", 
-            "data": [{
-                "hour": f.hour,
-                "predicted_load": f.predicted_load,
-                "ptf": f.expected_price,
-                "action": "YÜK KAYDIR" if f.expected_price > 2650 else "NORMAL"
-            } for f in forecasts]
-        }
+from crud import get_24h_data_by_type 
+@app.get("/api/v1/market-data/planB")
+async def get_latest_market_data_planB(db: Session = Depends(get_db)):
+    now = datetime.now()
     
+    # 1. Hedef Tarih Belirleme (14:00 Kuralı)
+    # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
+    if now.hour >= 14:
+        target_date = now.date() + timedelta(days=-1)
     else:
-        # Plan B: Operasyonel (Bugün)
-        # Frontend'deki renderTableUnified fonksiyonunun beklediği alan adlarını ekledim
-        history = crud.get_readings(db, limit=24)
-        return {
-            "mode": "B", 
-            "data": [{
-                "hour": h.timestamp.strftime("%H:%M") if h.timestamp else "--:--",
-                "actual_load": h.consumption,
-                "ptf": h.price,
-                "smf": getattr(h, 'smf', h.price * 1.1), # SMF yoksa simüle et
-                "status": "ENERJİ AÇIĞI" if getattr(h, 'smf', 0) > h.price else "ENERJİ FAZLASI"
-            } for h in history]
-        }
+        target_date = now.date()
     
+    # 2. Verileri Çek
+    ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
+    load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
+    smf_results = crud.get_24h_data_by_type(db, target_date, 3, MarketData)
+
+    # 3. Fallback (Yarın verisi henüz manuel girilmemişse bugüne dön)
+    if not ptf_results and target_date > now.date():
+        target_date = now.date()
+        ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
+        load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
+        smf_results = crud.get_24h_data_by_type(db, target_date, 3, MarketData)
+
+    # 4. Veri Birleştirme (Frontend'in beklediği format)
+    # 24 saatlik bir sözlük oluşturarak ptf ve load'u eşleştiriyoruz
+    combined = {f"{i:02d}:00": {"hour": f"{i:02d}:00", "ptf": 0.0, "load": 0.0, "smf": 0.0} for i in range(24)}
+    
+    for r in ptf_results:
+        combined[r.hour]["ptf"] = round(float(r.value), 2)
+    
+    for r in load_results:
+        combined[r.hour]["load"] = round(float(r.value), 2)
+
+    for r in smf_results:
+        combined[r.hour]["smf"] = round(float(r.value), 2)
+
+    return {
+        "status": "success",
+        "date": target_date.strftime('%Y-%m-%d'),
+        "is_tomorrow": target_date > now.date(),
+        "data": list(combined.values())
+    }
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard():
