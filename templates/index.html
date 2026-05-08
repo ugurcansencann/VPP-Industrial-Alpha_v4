@@ -41,13 +41,18 @@
         .vpp-card:hover { border-color: var(--accent-cyan); }
 
         /* Plan A & B İçin İnteraktif Kart Stillendirmesi */
-        .plan-card {
+        .plan-card, .clickable {
             cursor: pointer;
             transition: all 0.3s ease;
             border: 2px solid transparent;
             background: rgba(255, 255, 255, 0.03); /* Çok hafif belirginlik */
+            outline: none !important;
+            box-shadow: none !important;
         }
-
+        /* Chrome ve Safari için özel dokunuş */
+        .plan-card:focus, .plan-card:active {
+            outline: none !important;
+        }
         /* Plan A Özel (Cyan) */
         #card-plan-a { border-left: 4px solid var(--accent-cyan); }
         #card-plan-a.active-plan {
@@ -63,7 +68,10 @@
             box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
             background: rgba(255, 193, 7, 0.05) !important;
         }
-
+        #card-plan-f {
+            outline: none !important;
+            -webkit-tap-highlight-color: transparent; /* Mobil tarayıcılar için */
+        }
         .plan-card:hover {
             transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.08);
@@ -175,7 +183,7 @@
         <div class="d-flex justify-content-between align-items-center mb-5">
             <div>
                 <h3 class="fw-bold mb-0">⚡ VPP Industrial <span class="text-cyan" style="color: var(--accent-cyan)">Alpha</span></h3>
-                <p class="text-dim mb-0" style="font-size: 0.8rem;">Real-time Energy Arbitrage & Demand Response</p>
+                <p class="text-dim mb-0" style="font-size: 0.8rem;">Real-time Forecasting, Energy Arbitrage & Demand Response</p>
             </div>
             <div id="connection-status" class="px-3 py-1 rounded-pill bg-dark border border-success text-success d-flex align-items-center" style="font-size: 0.7rem;">
                 <span class="live-indicator"></span>
@@ -184,101 +192,125 @@
             </div>
         </div>
 
+        <!-- Üstteki 4'lü Panel Grubu -->
         <div class="row g-4">
-            <!-- Plan A: Yarın Projeksiyonu -->
+            <!-- YENİ PANEL 1: FİYAT TAHMİN -->
+            <div class="col-md-3">
+                <!-- ID ekledik, çift class hatasını düzelttik ve görseldeki mavi sol çizgiyi (border-left) ekledik -->
+                <div id="card-plan-f" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #fc0000;" onclick="switchMode('F')">
+                    <div class="card-title" style="font-size: 1.2rem;">Fiyat Tahmin</div>
+                    
+                    <!-- Başlık altındaki ayırıcı çizgi -->
+                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 15px;"></div>
+                    
+                    <div class="mt-2">
+                        <!-- 24 Saatlik Tahmin style="font-weight: bold;" -->
+                        <div class="small text-dim">Tahmini PTF Ortalaması:</div>
+                        <div class="h2 mb-1" id="avg-forecast" >-- <small>₺</small></div>
+                        
+                        <!-- Günlük Reel Ortalama -->
+                        <div class="small text-dim mt-4">Gerçekleşen PTF Ortalaması:</div>
+                        <div class="h5" id="avg-real" >-- <small style="font-size: 0.8rem;">₺</small></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 2: MALİYET OPTİMİZASYONU (ESKİ 1) -->
             <div class="col-md-3">                
-                <div id="card-plan-a" class="vpp-card plan-card clickable"  style="min-height: 230px;" onclick="switchMode('A')">
+                <div id="card-plan-a" class="vpp-card plan-card clickable" style="min-height: 230px;" onclick="switchMode('A')">
                     <div class="card-title" style="font-size: 1.2rem;">Maliyet Optimizasyonu</div>
                     <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>
-                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN A: Energy Arbitrage</div>
-                    <!-- Metin üstte, ID buraya taşındı -->
-                    <div class="small text-dim mt-2" id="plan-a-label">14:00+ Beklenen PTF Ort.:</div>
-                    <!-- Sayı altta -->
+                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN A: Arbitrage</div>
+                    <div class="small text-dim mt-2" id="plan-a-label">Beklenen PTF Ort.:</div>
                     <div class="h2 mb-1" id="plan-a-price">-- <small>₺</small></div>
                 </div>
             </div>
 
-            <!-- Plan B: Bugün Gerçekleşen (Arbitraj) -->
+            <!-- PANEL 3: DENGESİZLİK YÖNETİMİ (ESKİ 2) -->
             <div class="col-md-3">
-                <div id="card-plan-b" class="vpp-card plan-card clickable active-plan"  style="min-height: 230px;" onclick="switchMode('B')">
+                <div id="card-plan-b" class="vpp-card plan-card clickable active-plan" style="min-height: 230px;" onclick="switchMode('B')">
                     <div class="card-title" style="font-size: 1.2rem;">Dengesizlik Yönetimi</div>
                     <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>                    
-                        <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Demand Response</div>  
-                        <div class="small text-dim mt-2" id="plan-b-label">Son Saat Spread (SMF-PTF):</div>
-                        <div class="h2 mb-1" id="plan-b-price" style="font-size: 2rem; font-weight: 800; line-height: 1.2;">0.00 
-                            <small style="font-size: 0.6em; font-weight: 400; color: #94a3b8;">₺</small>
-                    </div>
+                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Response</div>  
+                    <div class="small text-dim mt-2" id="plan-b-label">Son Saat Spread:</div>
+                    <div class="h2 mb-1" id="plan-b-price">0.00 <small>₺</small></div>
                 </div>
             </div>
 
-            <!-- Sistem Durumu -->
+            <!-- PANEL 4: SİSTEM DURUMU / ENERJİ AÇIĞI (ESKİ 3) -->
             <div class="col-md-3">
                 <div class="vpp-card" style="min-height: 230px;">                    
+
                     <div id="market-direction" class="stat-value text-white" style="font-size: 1.2rem;">YÜKLENİYOR...</div>
-                    <div class="mt-2 pt-2 border-top border-secondary">
+                    <div class="mt-auto pt-2 border-top border-secondary">
                         <span id="yal-yat-status" class="small text-dim">PTF: 0 | SMF: 0</span>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- ML Karar -->
-            <div class="col-md-3">
-                <div class="vpp-card" style="min-height: 230px;">
-                    <div class="card-title" style="font-size: 1.2rem;"><strong>Enerji optimizasyonu</strong></div>
-                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>
-                    <div class="small text-dim">Yük Kaydırma Potansiyeli</div>
-                    <div class="h2 mb-1" id="shift-amount" style="color: #f59e0b;">0.00 <small>kWh</small>
-                    </div>
-                </div>
-            </div>
 
             <!-- Grafik Bölümü -->
-            <div class="col-md-9">
-                <div class="vpp-card">
-                    <!-- Buraya id="chart-title" ekledik -->
-                    <div id="chart-title" class="stat-label mb-3">Fiyat Trend Analizi (PTF vs SMF)</div>
-                    <canvas id="marketChart" style="max-height: 400px;"></canvas>
+            <div class="row g-4 mt-1">
+                <!-- Grafik Bölümü -->
+                <div class="col-md-9">
+                    <div class="vpp-card">
+                        <div id="chart-title" class="stat-label mb-3">Fiyat Trend Analizi (PTF vs SMF)</div>
+                        <canvas id="marketChart" style="max-height: 400px;"></canvas>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Hızlı Aksiyonlar -->
-            <div class="col-md-3">
-                <div class="vpp-card d-flex flex-column gap-3">
-                    <div class="stat-label">Kontrol Paneli</div>
-                    <button class="btn btn-vpp-outline w-100 py-3" onclick="window.location.href='http://localhost:8080'">
-                        <img src="https://airflow.apache.org/images/feature-image.png" width="20" class="me-2"> AIRFLOW
-                    </button>
-                    <button class="btn btn-vpp-outline w-100 py-3" onclick="fetchHistory()">MANUAL REFRESH</button>
-                    <div class="mt-auto pt-3 border-top border-secondary">
-                        <div class="small text-dim mb-1">Hata Payı (MAE): <b id="metric-mae" class="text-white">...</b></div>
-                        <div class="small text-dim mb-2">Model Score (R²): <b id="metric-r2" class="text-white">...</b></div>
-                        <button class="btn btn-sm btn-dark w-100 text-dim" onclick="retrainModel()">Trigger ML Retrain</button>
+            
+                <!-- Kontrol Paneli + Sağ Panel (TAŞINAN PANEL BURADA) -->
+                <div class="col-md-3">
+                    <div class="vpp-card d-flex flex-column gap-3">
+                        <div class="stat-label">Kontrol Paneli</div>
+                        <button class="btn btn-vpp-outline w-100 py-3" onclick="window.location.href='http://localhost:8080'">
+                            <img src="https://airflow.apache.org/images/feature-image.png" width="20" class="me-2"> AIRFLOW
+                        </button>
+                        <button class="btn btn-vpp-outline w-100 py-3" onclick="fetchHistory()">MANUAL REFRESH</button>
+                        
+                        <!-- BURAYA TAŞINDI: Enerji Optimizasyonu -->
+                        <div class="mt-3 pt-3 border-top border-secondary">
+                            <div class="card-title text-white" style="font-size: 1rem; font-weight: 600;">Enerji Optimizasyonu</div>
+                            <div class="small text-dim mt-2">Yük Kaydırma Potansiyeli</div>
+                            <div class="h3 mb-0" id="shift-amount" style="color: #f59e0b;">0.00 <small style="font-size: 0.5em;">kWh</small></div>
+                        </div>            
+                        <div class="mt-auto pt-3 border-top border-secondary">
+                            <div class="small text-dim mb-1">Hata Payı (MAE): <b id="metric-mae" class="text-white">...</b></div>
+                            <div class="small text-dim mb-2">Model Score (R²): <b id="metric-r2" class="text-white">...</b></div>
+                            <button class="btn btn-sm btn-dark w-100 text-dim" onclick="retrainModel()">Trigger ML Retrain</button>
+                        </div>
                     </div>
                 </div>
             </div>
-
+            <div class="row g-4 mb-4"> <!-- Buraya mb-4 ekledik -->
+                <!-- Grafik Paneli (col-md-9) -->
+                <!-- Kontrol Paneli (col-md-3) -->
+            </div>
+            <div class="row">
         <!-- Veritabanı Tablosu -->
-            <div class="col-md-12">
-                <div class="vpp-card">
-                    <div class="stat-label mb-3">IoT + Piyasa Arbitraj Günlüğü (Son 24 Kayıt)</div>
-                    <div class="table-responsive">
-                        <table id="vpp-table" class="table table-vpp">
-                            <thead id="vpp-table-head">
-                                <!-- Sayfa ilk açıldığında Plan A başlıkları görünsün -->
-                                <tr>
-                                    <th>SAAT</th>
-                                    <th>TAHMİNİ YÜK (KWH)</th>
-                                    <th>PTF (₺)</th>
-                                    <th>AKSİYON ÖNERİSİ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="vpp-table-body">
-                                <!-- Veriler JavaScript (renderTableUnified) tarafından buraya basılacak -->
-                                <tr>
-                                    <td colspan="4" class="text-center" style="color: #94a3b8;">Veriler yükleniyor...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="col-md-12">
+                    <div class="vpp-card">
+                        <div class="stat-label mb-3">IoT + Piyasa Arbitraj Günlüğü (Son 24 Kayıt)</div>
+                        <div class="table-responsive">
+                            <table id="vpp-table" class="table table-vpp">
+                                <thead id="vpp-table-head">
+                                    <!-- Sayfa ilk açıldığında Plan A başlıkları görünsün -->
+                                    <tr>
+                                        <th>SAAT</th>
+                                        <th>TAHMİNİ YÜK (KWH)</th>
+                                        <th>PTF (₺)</th>
+                                        <th>AKSİYON ÖNERİSİ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vpp-table-body">
+                                    <!-- Veriler JavaScript (renderTableUnified) tarafından buraya basılacak -->
+                                    <tr>
+                                        <td colspan="4" class="text-center" style="color: #94a3b8;">Veriler yükleniyor...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -286,78 +318,235 @@
     </div>
 
     <script>
+
+
     let myChart;
     let currentMode = 'B'; 
     let refreshInterval; // Otomatik yenilemeyi kontrol etmek için
+    // Veriyi globalde tutalım ki mod değiştikçe tekrar API'ye gitmeyelim
+    let dashboardCache = null;
+    // Plan A ve Plan F'ye göre, dashboard içeriği oluşturma
+    async function switchMode(mode) {
+    currentMode = mode;
+    
+    // UI Aktiflik (Kartların görsel durumu)
+    document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('active-plan'));
+    const targetCard = document.getElementById(`card-plan-${mode.toLowerCase()}`);
+    if (targetCard) targetCard.classList.add('active-plan');
 
-    // 1. MERKEZİ VERİ ÇEKME (PLAN B)
-    async function updateDashboard() {
-    if (currentMode !== 'B') return; 
+    // Tıklanan karta ekle
+    // DİKKAT: ID'nin 'card-plan-f' veya 'card-plan-a' ile tam eşleştiğinden emin ol
 
+    
+    if (targetCard) {
+        targetCard.classList.add('active-plan');
+    } else {
+        console.error(`Kart bulunamadı: ${targetCard}`); // Hata buradaysa konsolda görürsün
+    }
+
+    if (mode === 'A') {
     try {
-        // YENİ ENDPOINT: planB çağrılıyor
-        const response = await fetch('/api/v1/market-data/planB');
-        const result = await response.json();
+        // 1. İki endpoint'i de paralel olarak çağır (Performans için)
+        const [planAResp, summaryResp] = await Promise.all([
+            fetch('/api/v1/market-data/planA'),
+            fetch('/daily-summary')
+        ]);
 
-        if (result.status === "success" && result.data.length > 0) {
-            const data = result.data;
-            
-            // Son veriyi al (Genelde tablodaki en güncel saat için)
-            const lastEntry = data[data.length - 1]; 
-            
-            // Üst Kart Güncelleme (Plan B - Spread Analizi)
-            const ptf = Number(lastEntry.ptf) || 0;
-            const load = Number(lastEntry.load) || 0;
-            const smf = Number(lastEntry.smf) || 0;
-            const spread = (smf - ptf).toFixed(2);
-            
-            const bPriceEl = document.getElementById('plan-b-price');
-            if (bPriceEl) {
-                bPriceEl.innerHTML = `${spread} <small>₺</small>`;
-                // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
-                bPriceEl.style.color = spread >= 0 ? '#10b981' : '#f43f5e';
+        const planAResult = await planAResp.json();
+        const summaryResult = await summaryResp.json();
+
+        if (planAResult.status === "success" && summaryResult.data) {
+            const marketData = planAResult.data; // PTF ve LOAD burada
+            const optData = summaryResult.data;  // Tasarruf verileri burada
+
+            // --- VERİ BİRLEŞTİRME (MERGE) ---
+            // Optimizasyon verisini baz alıp içine PTF değerini ekliyoruz
+            const combinedData = optData.map(optItem => {
+                // marketData içinden aynı saate sahip veriyi bul
+                const marketItem = marketData.find(m => m.hour === optItem.hour);
+                return {
+                    ...optItem,
+                    ptf: marketItem ? marketItem.ptf : 0 // PTF'i market verisinden çek
+                };
+            });
+
+            // 2. UI Güncellemeleri
+            updatePlanALabel();
+
+            // Sarı Sayı: Toplam Tasarruf
+            const savingsElement = document.getElementById('plan-a-price');
+            if (savingsElement) {
+                savingsElement.innerHTML = `${summaryResult.total_daily_savings} <small>₺</small>`;
             }
 
-            // Grafik: PTF vs SMF karşılaştırması
+            // 3. Grafik Güncelleme
             updateChart(
-                data.map(item => item.hour),
-                data.map(item => Number(item.ptf) || 0),
-                data.map(item => Number(item.smf) || 0),
-                'SMF (₺)' // Sağ eksen başlığı
+                combinedData.map(d => d.hour),
+                combinedData.map(d => d.base_load), // Load verisi artık combined içinde de var
+                combinedData.map(d => d.ptf),
+                'ML Yük Tahmini (kWh)'
             );
 
-            // Tabloyu Plan B formatında (PTF/SMF/Status) render et
-            renderTableUnified(data, 'B');
+            // 4. TABLOYU GÜNCELLE (Birleştirilmiş veri gidiyor)
+            console.log("Tabloya gönderilen birleştirilmiş veri:", combinedData);
+            renderTableUnified(combinedData, 'A');
 
-            // Piyasa Yönü UI Güncelleme (lastEntry içinde SMF ve PTF olduğu için çalışır)
-            updateMarketUI(lastEntry, 'B');
-            
+            // Ekranın sağındaki analiz paneli için
+            updateMarketUI([...marketData].sort((a, b) => a.ptf - b.ptf), 'A');
         }
-    } catch (error) {
-        console.error("Plan B Dashboard hatası:", error);
+            } catch (error) {
+                console.error("Plan A veri birleştirme hatası:", error);
+            }
+        } else if (mode === 'F'){
+        try {
+            const response = await fetch('/api/v1/market-data/planF');
+            const result = await response.json();
+            // switchMode('A') çağrıldığında veya sayfa yüklendiğinde çalıştırın
+            //updatePlanALabel();
+
+            if (result.status === "success" && result.data.length > 0) {
+                const marketData = result.data;
+                // --- 1. EN UCUZ / EN PAHALI SAAT ANALİZİ ---
+                const sortedData_ptf = [...marketData].sort((a, b) => a.ptf - b.ptf);
+                const sortedData_forecasted_ptf = [...marketData].sort((a, b) => a.forecasted_ptf - b.forecasted_ptf);
+                //const cheapestHour = sortedData[0];
+                //const expensiveHour = sortedData[sortedData.length - 1];
+                const avgPtf = marketData.reduce((acc, curr) => acc + curr.ptf, 0) / marketData.length;
+                const avgForecasted_ptf = marketData.reduce((acc, curr) => acc + curr.forecasted_ptf, 0) / marketData.length;
+                // Üst Kart Güncelleme (Plan B - Spread Analizi)
+                const ptf = Number(marketData.ptf) || 0;
+                const forecasted_ptf = Number(marketData.forecasted_ptf) || 0;
+                
+                const priceForecasted = document.getElementById('avg-forecast');
+                if (priceForecasted) priceForecasted.innerHTML = `${avgForecasted_ptf.toFixed(2)} <small>₺</small>`;
+                const priceReal = document.getElementById('avg-real');
+                if (priceReal) priceReal.innerHTML = `${avgPtf.toFixed(2)} <small>₺</small>`;
+
+                processPriceData(ptf, forecasted_ptf)
+                // Grafik: PTF vs SMF karşılaştırması
+                updateChart(
+                    marketData.map(item => item.hour),
+                    marketData.map(item => Number(item.ptf) || 0),
+                    marketData.map(item => Number(item.forecasted_ptf) || 0),
+                    'Tahmini PTF (₺)' // Sağ eksen başlığı
+                );
+
+                renderTableUnified(marketData, 'F');
+
+                updateMarketUI(sortedData_ptf, 'F');
+
+            }
+        } catch (error) {
+            console.error("Plan F yükleme hatası:", error);
+        }
+    } else {
+        // Plan B'ye geçildiğinde hemen güncelleme yap
+        updateDashboard(); 
     }
 }
-     // 4. TABLO RENDER
+    
+    // Plan B'ye göre, dashboard içeriği oluşturma
+    async function updateDashboard() {
+        if (currentMode !== 'B') return; 
+
+        try {
+            // YENİ ENDPOINT: planB çağrılıyor
+            const response = await fetch('/api/v1/market-data/planB');
+            const result = await response.json();
+
+            if (result.status === "success" && result.data.length > 0) {
+                const data = result.data;
+                
+                // Son veriyi al (Genelde tablodaki en güncel saat için)
+                const lastEntry = data[data.length - 1]; 
+                
+                // Üst Kart Güncelleme (Plan B - Spread Analizi)
+                const ptf = Number(lastEntry.ptf) || 0;
+                const load = Number(lastEntry.load) || 0;
+                const smf = Number(lastEntry.smf) || 0;
+                const spread = (smf - ptf).toFixed(2);
+                
+                const bPriceEl = document.getElementById('plan-b-price');
+                if (bPriceEl) {
+                    bPriceEl.innerHTML = `${spread} <small>₺</small>`;
+                    // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
+                    bPriceEl.style.color = spread >= 0 ? '#10b981' : '#f43f5e';
+                }
+
+                // Grafik: PTF vs SMF karşılaştırması
+                updateChart(
+                    data.map(item => item.hour),
+                    data.map(item => Number(item.ptf) || 0),
+                    data.map(item => Number(item.smf) || 0),
+                    'SMF (₺)' // Sağ eksen başlığı
+                );
+
+                // Tabloyu Plan B formatında (PTF/SMF/Status) render et
+                renderTableUnified(data, 'B');
+
+                // Piyasa Yönü UI Güncelleme (lastEntry içinde SMF ve PTF olduğu için çalışır)
+                updateMarketUI(lastEntry, 'B');
+                
+            }
+        } catch (error) {
+            console.error("Plan B Dashboard hatası:", error);
+        }
+    }
+
+
+    // Plana göre tablo içeriğini doldurma
     function renderTableUnified(data, mode) {
         const tableHead = document.getElementById('vpp-table-head');
         const tableBody = document.querySelector('#vpp-table tbody');
         if (!tableHead || !tableBody) return;
-
+        console.log("mode:", mode);
         if (mode === 'A') {
-            tableHead.innerHTML = `<tr><th>SAAT</th><th>ML YÜK TAHMİNİ (KWH)</th><th>PTF (₺)</th><th>AKSİYON</th></tr>`;
-            tableBody.innerHTML = data.map(item => `
-                <tr>
-                    <td style="color: #94a3b8;">${item.hour}</td>
-                    <td style="font-weight: bold; color: #fbbf24;">${Number(item.load).toFixed(2)}</td>
-                    <td style="color: #22d3ee;">${Number(item.ptf).toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${item.ptf > 2000 ? 'bg-danger' : 'bg-success'}">
-                            ${item.ptf > 2000 ? 'YÜK KAYDIR' : 'NORMAL'}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
-        } else {
+            console.log("mode:", mode);
+            tableHead.innerHTML = `<tr><th>SAAT</th><th>ML YÜK (KWH)</th><th>PTF (₺)</th><th>KISINTI (kWh)</th><th>TASARRUF (₺)</th><th>AKSİYON</th></tr>`;
+            tableBody.innerHTML = data.map(item => {
+                // Backend'den 'potential_savings_tl' olarak geliyor
+                const saving = item.potential_savings_tl || 0; 
+                const isHighSaving = saving > 100;
+
+                return `
+                    <tr>
+                        <td style="color: #94a3b8;">${item.hour}</td>
+                        <td style="font-weight: bold; color: #fbbf24;">${item.base_load}</td>
+                        <td style="color: #22d3ee;">${item.ptf}</td>
+                        <td style="color: #22d3ee;">${item.reduction_amount}</td>
+                        <td style="color: #4ade80; font-weight: bold;">+${saving.toFixed(2)} ₺</td>
+                        <td>
+                            <span class="badge ${isHighSaving ? 'bg-success' : 'bg-secondary'}">
+                                ${isHighSaving ? 'YÜK KAYDIR' : 'STABİL'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } if (mode === 'F') {
+            // PLAN F: Fiyat Tahmin Analiz Modu
+            tableHead.innerHTML = `<tr><th>SAAT</th><th>GERÇEK PTF (₺)</th><th>TAHMİNİ PTF (₺)</th><th>SAATLİK MAE (₺)</th></tr>`;
+            
+            tableBody.innerHTML = data.map(item => {
+                const actual = Number(item.ptf || 0);
+                const forecast = Number(item.forecasted_ptf || 0);
+                // Saatlik Ortalama Mutlak Hata (MAE) Hesaplama
+                const hourlyMAE = Math.abs(actual - forecast);
+
+                return `
+                    <tr>
+                        <td style="color: #94a3b8;">${item.hour}</td>
+                        <td style="color: #22d3ee;">${actual.toFixed(2)}</td>
+                        <td style="font-weight: bold; color: #fbbf24;">${forecast.toFixed(2)}</td>
+                        <td>
+                            <span class="badge ${hourlyMAE > 100 ? 'bg-warning' : 'bg-info'}" style="color: #fff;">
+                                ${hourlyMAE.toFixed(2)}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } else if (mode === 'B') {
             // Plan B (Operasyonel)
             tableHead.innerHTML = `<tr><th>SAAT</th><th>ANLIK YÜK (KWH)</th><th>PTF (₺)</th><th>SMF (₺)</th><th>DURUM</th></tr>`;
             tableBody.innerHTML = data.map(item => `
@@ -373,9 +562,12 @@
                     </td>
                 </tr>
             `).join('');
+        } else {
+
         }
     }
-    
+   
+    // Plan F panel bilgisi
     function updatePlanALabel() {
     const labelEl = document.getElementById('plan-a-label');
     const now = new Date();
@@ -389,81 +581,8 @@
         labelEl.innerHTML = "Günün PTF Ortalaması:";
     }
 }
-
-    async function switchMode(mode) {
-    currentMode = mode;
     
-    // UI Aktiflik (Kartların görsel durumu)
-    document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('active-plan'));
-    const targetCard = document.getElementById(`card-plan-${mode.toLowerCase()}`);
-    if (targetCard) targetCard.classList.add('active-plan');
-
-    if (mode === 'A') {
-        try {
-            const response = await fetch('/api/v1/market-data/planA');
-            const result = await response.json();
-            // switchMode('A') çağrıldığında veya sayfa yüklendiğinde çalıştırın
-            updatePlanALabel();
-
-            if (result.status === "success" && result.data.length > 0) {
-                const marketData = result.data;
-
-                // --- 1. EN UCUZ / EN PAHALI SAAT ANALİZİ ---
-                const sortedData = [...marketData].sort((a, b) => a.ptf - b.ptf);
-                //const cheapestHour = sortedData[0];
-                //const expensiveHour = sortedData[sortedData.length - 1];
-                const avgPrice = marketData.reduce((acc, curr) => acc + curr.ptf, 0) / marketData.length;
-
-                //const lastEntry = marketData[marketData.length - 1]; 
-                // Üst Kart Güncelleme (Plan A)
-                const priceEl = document.getElementById('plan-a-price');
-                if (priceEl) priceEl.innerHTML = `${avgPrice.toFixed(2)} <small>₺</small>`;
-
-                // Grafik: PTF (Çizgi) ve LOAD (Bar/Sağ Eksen)
-                updateChart(
-                    marketData.map(d => d.hour),
-                    marketData.map(d => d.ptf),
-                    marketData.map(d => d.load),
-                    'ML Yük Tahmini (kWh)'
-                );
-
-                renderTableUnified(marketData, 'A');
-
-                updateMarketUI(sortedData, 'A');
-
-            }
-        } catch (error) {
-            console.error("Plan A yükleme hatası:", error);
-        }
-    } else {
-        // Plan B'ye geçildiğinde hemen güncelleme yap
-        updateDashboard(); 
-    }
-}
-
-    // 3. TABLO BAŞLIKLARINI SABİTLEME
-    function updateTableHeaders(mode) {
-        const thead = document.querySelector(".table-vpp thead tr");
-        if (mode === 'A') {
-            thead.innerHTML = `
-                <th>SAAT</th>
-                <th>TAHMİNİ YÜK (KWH)</th>
-                <th>PTF (₺)</th>
-                <th>AKSİYON ÖNERİSİ</th>
-            `;
-        } else {
-            thead.innerHTML = `
-                <th>SAAT</th>
-                <th>ANLIK YÜK (KWH)</th>
-                <th>PTF (₺)</th>
-                <th>SMF (₺)</th>
-                <th>DURUM</th>
-            `;
-        }
-    }
-
-    
-// 3. panel Sistem Piyasa Yönü
+    // 4. Panel --> Bilgi modulü
     function updateMarketUI(last, mode) {
     const directionDiv = document.getElementById('market-direction');
     const statusText = document.getElementById('yal-yat-status');
@@ -478,29 +597,74 @@
 
         // Orta paneldeki alt detay metnini 1, 2 ve 3. maddelere göre düzenliyoruz
         statusText.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 0.9rem;">
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px; font-size: 0.9rem;">
             <!-- 1. Satır: Başlık -->
             <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
-                1. Fiyat Penceresi:
-            </div>
-            
+                1. Fiyat Penceresi:</div>            
             <!-- 2. Satır: Veri -->
             <div style="color: #94a3b8; padding-left: 4px;">
                 En Ucuz: <span style="color: #ffffff; font-weight: 800;">${cheapestHour.hour}</span> 
-                (<span style="color: #ffffff; font-weight: 800;">${cheapestHour.ptf} ₺</span>)
-            </div>
-
+                (<span style="color: #ffffff; font-weight: 800;">${cheapestHour.ptf} ₺</span>)</div>
             <!-- 3. Satır: Başlık -->
             <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; margin-top: 4px;">
-                2. Hazırlık Planı:
-            </div>
-
+                2. Hazırlık Planı:</div>
             <!-- 4. Satır: Veri -->
             <div style="color: #94a3b8; padding-left: 4px;">
                 Pik saat <span style="color: #ffffff; font-weight: 800;">(${expensiveHour.hour})</span> tüketim kısıtlanmalı
             </div>
         </div>`;
         
+    } else if (mode === 'F') {
+        // --- PLAN F: ANALİZ VE PERFORMANS RAPORU ---
+        
+        // Veri hazırlığı (last dizisinin 24 saatlik veriyi içerdiğini varsayıyoruz)
+        const ptfValues = last.map(d => d.ptf);
+        const forecastValues = last.map(d => d.forecast || d.ptf); // Tahmin verisi yoksa gerçeği al (hata 0 çıkar)
+
+        // 1. Spread Analizi (Günlük Makas)
+        const maxPTF = Math.max(...ptfValues);
+        const minPTF = Math.min(...ptfValues);
+        const dailySpread = maxPTF - minPTF;
+
+        // 2. Volatilite İndeksi (Basit Standart Sapma Yaklaşımı)
+        const avgPTF = ptfValues.reduce((a, b) => a + b, 0) / ptfValues.length;
+        const variance = ptfValues.reduce((a, b) => a + Math.pow(b - avgPTF, 2), 0) / ptfValues.length;
+        const volatility = (Math.sqrt(variance) / avgPTF) * 100; // Yüzdesel indeks
+
+        // 3. Tahmin Hata / Gelir Fırsat Kaybı (Ortalama Mutlak Hata bazlı)
+        const totalError = ptfValues.reduce((acc, val, i) => acc + Math.abs(val - forecastValues[i]), 0);
+        const opportunityLoss = totalError / ptfValues.length; // Saatlik ortalama sapma (₺)
+
+        // UI Güncelleme
+        directionDiv.innerHTML = `<span class="status-indicator" style="background: #3b82f6;"></span>Performans Analizi`;
+
+        statusText.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 12px; font-size: 0.9rem;">
+            <!-- Volatilite İndeksi -->
+            <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
+                1. Oynaklık (Volatilite):
+            </div>
+            <div style="color: #94a3b8; padding-left: 4px;">
+                İndeks: <span style="color: #ffffff; font-weight: 800;">%${volatility.toFixed(1)}</span> 
+                ${volatility > 20 ? '<span style="color: #ef4444;">(Yüksek)</span>' : '<span style="color: #10b981;">(Stabil)</span>'}
+            </div>
+
+            <!-- Spread Analizi -->
+            <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; margin-top: 4px;">
+                2. Günlük Fiyat Spread:
+            </div>
+            <div style="color: #94a3b8; padding-left: 4px;">
+                Makas: <span style="color: #ffffff; font-weight: 800;">${dailySpread.toFixed(2)} ₺</span>
+            </div>
+
+            <!-- Gelir Fırsat Kaybı -->
+            <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; margin-top: 4px;">
+                3. Sapma / Fırsat Kaybı:
+            </div>
+            <div style="color: #94a3b8; padding-left: 4px;">
+                Ort. Hata: <span style="color: #ffffff; font-weight: 800;">${opportunityLoss.toFixed(2)} ₺/MWh</span>
+            </div>
+        </div>`;
     } else {
         // --- PLAN B: BUGÜN İÇİN ANLIK OPERASYONEL GÖRÜNÜM ---
         const smfValue = last.smf || 0;
@@ -513,7 +677,7 @@
         directionDiv.innerHTML = `<span class="status-indicator" style="background: ${actionColor};"></span><strong>${marketDirection}</strong>`;
 
         statusText.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 0.9rem;">
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 0.9rem;">
             <div style="color: #3b82f6; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
                 1. Piyasa Durumu (Real-Time):
             </div>
@@ -535,61 +699,254 @@
  
     }
 }
-    // 3. GRAFİK ÇİZİCİ (ZORLU BAŞLIK GÜNCELLEME)
+
+    // Plana göre tablo başlıkları
+    function updateTableHeaders(mode) {
+        const thead = document.querySelector(".table-vpp thead tr");
+        if (mode === 'A') {
+            thead.innerHTML = `
+                <th>SAAT</th>
+                <th>TAHMİNİ YÜK (KWH)</th>
+                <th>PTF (₺)</th>
+                <th>AKSİYON ÖNERİSİ</th>
+            `;
+        } else if (mode === 'F') {
+            thead.innerHTML = `
+                <th>SAAT</th>
+                <th>GERÇEK PTF (₺)</th>
+                <th>TAHMİNİ PTF (₺)</th>
+                <th>SAATLİK MAE</th>
+            `;
+        } else {
+            thead.innerHTML = `
+                <th>SAAT</th>
+                <th>ANLIK YÜK (KWH)</th>
+                <th>PTF (₺)</th>
+                <th>SMF (₺)</th>
+                <th>DURUM</th>
+            `;
+        }
+    }
+    
+    // Plana göre chart
     function updateChart(labels, mainData, secondaryData, secondaryLabel) {
         const ctx = document.getElementById('marketChart').getContext('2d');
         const titleElement = document.getElementById('chart-title');
+        const titles = {
+            'A': 'Plan A: PTF vs Tahmin Karşılaştırması',
+            'B': 'Plan B: Fiyat Trend Analizi (PTF vs SMF)',
+            'F': 'Plan F: [Buraya F Modu Başlığını Yazın]'
+        };
 
+        // Varsayılan bir başlık belirlemek için "||" kullanabilirsin
+        titleElement.innerText = titles[currentMode] || 'Varsayılan Başlık';
         // Başlığı HTML'de anında değiştir
-        if (titleElement) {
-            titleElement.innerText = currentMode === 'A' 
-                ? 'Plan A: Yarınki PTF vs Stratejik Tahmin Karşılaştırması' 
-                : 'Plan B: Fiyat Trend Analizi (PTF vs SMF)';
+        switch (currentMode) {
+            case 'A':
+                titleElement.innerText = 'Plan A: PTF vs Yük Tahmin Karşılaştırması';
+                break;
+            case 'B':
+                titleElement.innerText = 'Plan B: Fiyat Trend Analizi (PTF vs SMF)';
+                break;
+            case 'F':
+                titleElement.innerText = 'Plan F: PTF vs Tahmini PTF Karşılaştırması';
+                break;
+            default:
+                titleElement.innerText = 'Genel Görünüm';
         }
 
         if (myChart) myChart.destroy();
 
-        myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { 
-                        label: 'PTF (₺)', 
-                        data: mainData, 
-                        borderColor: '#22d3ee', 
-                        fill: currentMode === 'A',
-                        backgroundColor: 'rgba(34, 211, 238, 0.1)',
-                        tension: 0.3,
-                        yAxisID: 'y' // Sol eksene bağlı 
-                    },
-                    { 
-                        label: secondaryLabel, 
-                        data: secondaryData, 
-                        borderColor: currentMode === 'A' ? '#fbbf24' : '#f43f5e', 
-                        borderDash: currentMode === 'A' ? [] : [5, 5], 
-                        tension: 0.4,
-                        yAxisID: 'y1' // Sağ eksene bağlı (KRİTİK)
-                    }
-                ]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: {
-                    y: { position: 'left', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'PTF (₺)', color: '#94a3b8' } },
-                    // Sağ Eksen (Yük veya SMF için dinamik)
-                    y1: { position: 'right', grid: { drawOnChartArea: false }, // Çizgiler sol eksenle karışmasın
-                        ticks: { color: '#94a3b8' }, title: { display: true, text: secondaryLabel, color: '#94a3b8' } },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        // 2. MOD BAZLI EKSEN VE STİL AYARLARI
+    // Plan F'de her iki veri de fiyat olduğu için tek eksen (sol) kullanıyoruz.
+    const isPlanF = currentMode === 'F';
+    const isPlanA = currentMode === 'A';
+
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { 
+                    label: 'Gerçek PTF (₺)', 
+                    data: mainData, 
+                    borderColor: '#22d3ee', // Cyan
+                    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                    fill: isPlanA || isPlanF, // Tahmin kıyaslamasında alan doldurma iyi durur
+                    tension: 0.3,
+                    yAxisID: 'y' 
                 },
-                plugins: {
-                    legend: { labels: { color: '#94a3b8' } }
+                { 
+                    label: secondaryLabel, 
+                    data: secondaryData, 
+                    borderColor: isPlanF ? '#f59e0b' : (isPlanA ? '#f43f5e' : '#fbbf24'), // F modu için Amber/Turuncu
+                    borderDash: isPlanF ? [] : (isPlanA ? [] : [5, 5]), 
+                    backgroundColor: isPlanF ? 'rgba(245, 158, 11, 0.05)' : 'transparent',
+                    fill: isPlanF, 
+                    tension: 0.4,
+                    // KRİTİK: Plan F ise veriyi sol eksene (y), değilse sağ eksene (y1) bağla
+                    yAxisID: isPlanF ? 'y' : 'y1' 
                 }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    position: 'left', 
+                    grid: { color: 'rgba(255,255,255,0.05)' }, 
+                    ticks: { color: '#94a3b8' }, 
+                    title: { display: true, text: 'Fiyat (₺)', color: '#94a3b8' } 
+                },
+                y1: { 
+                    display: !isPlanF, // Plan F'de sağ ekseni gizle
+                    position: 'right', 
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: '#94a3b8' }, 
+                    title: { display: true, text: secondaryLabel, color: '#94a3b8' } 
+                },
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { color: '#94a3b8' } 
+                }
+            },
+            plugins: {
+                legend: { 
+                    display: true,
+                    labels: { color: '#94a3b8', usePointStyle: true } 
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             }
-        });
+        }
+    });
     }
 
+    //Yük Kaydırma önerisini optimizasyon ile belirleme
+    async function energy_optimization(){
+        if (currentMode !== 'B') return; 
+
+        try {
+            // YENİ ENDPOINT: planB çağrılıyor
+            const response = await fetch('/optimize');
+            const result = await response.json();
+
+            if (result.status === "success" && result.data.length > 0) {
+                const data = result.data;
+                
+                // Son veriyi al (Genelde tablodaki en güncel saat için)
+                const lastEntry = data[data.length - 1]; 
+                
+                // Üst Kart Güncelleme (Plan B - Spread Analizi)
+                const ptf = Number(lastEntry.ptf) || 0;
+                const load = Number(lastEntry.load) || 0;
+                const smf = Number(lastEntry.smf) || 0;
+                const spread = (smf - ptf).toFixed(2);
+                
+                const bPriceEl = document.getElementById('plan-b-price');
+                if (bPriceEl) {
+                    bPriceEl.innerHTML = `${spread} <small>₺</small>`;
+                    // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
+                    bPriceEl.style.color = spread >= 0 ? '#10b981' : '#f43f5e';
+                }
+
+                // Grafik: PTF vs SMF karşılaştırması
+                updateChart(
+                    data.map(item => item.hour),
+                    data.map(item => Number(item.ptf) || 0),
+                    data.map(item => Number(item.smf) || 0),
+                    'SMF (₺)' // Sağ eksen başlığı
+                );
+
+                // Tabloyu Plan B formatında (PTF/SMF/Status) render et
+                renderTableUnified(data, 'B');
+
+                // Piyasa Yönü UI Güncelleme (lastEntry içinde SMF ve PTF olduğu için çalışır)
+                updateMarketUI(lastEntry, 'B');
+                
+            }
+        } catch (error) {
+            console.error("Plan B Dashboard hatası:", error);
+        }
+    }
+
+
+    // MAE hesaplama
+    function processPriceData(actualPrices, forecastPrices) {
+        let totalError = 0;
+        let validCount = 0;
+        const tableRows = [];
+
+        // 24 saatlik döngü
+        for (let i = 0; i < 24; i++) {
+            const actual = actualPrices[i] || 0;
+            const forecast = forecastPrices[i] || 0;
+            const hourlyMAE = Math.abs(actual - forecast);
+ 
+            totalError += hourlyMAE;
+            if(actual > 0) validCount++;
+
+            tableRows.push({
+                hour: `${String(i).padStart(2, '0')}:00`,
+                actual: actual.toFixed(2),
+                forecast: forecast.toFixed(2),
+                mae: hourlyMAE.toFixed(2)
+            });
+        }
+
+        const averageMAE = totalError / 24;
+        
+        // UI Güncelleme
+        document.getElementById('metric-mae').innerText = averageMAE.toFixed(2) + " ₺";
+        
+        const score = calculateR2Score(actualPrices, forecastPrices);
+        const element = document.getElementById('metric-r2');
+        element.innerText = score.toFixed(2);
+        element.style.color = score > 0.8 ? '#22d3ee' : (score > 0.5 ? '#fbbf24' : '#f43f5e');
+
+        document.getElementById('metric-r2').innerText = score.toFixed(4);
+        
+        return tableRows;
+    }
+
+    //R2 score hesaplama
+    function calculateR2Score(actuals, forecasts) {
+    // 1. Veri kontrolü (Dizi değilse veya boşsa hemen çık)
+        if (!actuals || !forecasts || !Array.isArray(actuals) || actuals.length === 0) {
+            return 0;
+        }
+
+        try {
+            const n = actuals.length;
+            // Sayı olduklarından emin ol (String gelirse patlamasın)
+            const cleanActuals = actuals.map(v => Number(v) || 0);
+            const cleanForecasts = forecasts.map(v => Number(v) || 0);
+
+            const meanActual = cleanActuals.reduce((a, b) => a + b, 0) / n;
+
+            let ssRes = 0;
+            let ssTot = 0;
+
+            for (let i = 0; i < n; i++) {
+                ssRes += Math.pow(cleanActuals[i] - cleanForecasts[i], 2);
+                ssTot += Math.pow(cleanActuals[i] - meanActual, 2);
+            }
+
+            return ssTot === 0 ? 0 : 1 - (ssRes / ssTot);
+        } catch (e) {
+            console.error("R2 hesaplanırken beklenmedik hata:", e);
+            return 0;
+        }
+    }
+    
     // Başlangıç tetikleyicileri
     updateTableHeaders('B');
     updateDashboard();

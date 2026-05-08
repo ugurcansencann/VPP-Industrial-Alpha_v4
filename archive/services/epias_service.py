@@ -5,7 +5,7 @@ import pandas as pd
 class EpiasService:
     def __init__(self):
         self.url = "https://seffaflik.epias.com.tr/electricity-service/v1/markets/dam/data/mcp"
-        
+                
         # --- HER GÜN BURADAKİ COOKIE DEĞERİNİ GÜNCELLE ---
         self.my_cookie = "TGTA-EXT-PROD=Ptb8M8DQNWDhKGVRN6oFEfzzEUlwhQsX4KCd3c3gQJyoxyxUuaNR0s336mimWpbBl4/AeA5kCZcvtR52FRoqPQMLijgS7CuQi8vKVYc+AFXRzyGkFG7Nwgtihv86DDDJAjUFwrzLGZFVQYCvabz9Ew==; TS01beeb54=01cbc7c0b2091d44496a5bae02e56674545659036a0c538cd09408680aca1e6ec38cddc052d27d1a2b9c5c527d64932b13590565254a63b6e5063589fea0c379d644f7c8203c9eb92f9ac10504b5091ca014609c7b"
 

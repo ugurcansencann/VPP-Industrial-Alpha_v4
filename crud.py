@@ -8,11 +8,11 @@ from models import VPPForecast
 
 def get_readings(db: Session, limit: int = None, days: int = None):
     """Genel veri çekme fonksiyonu (Dashboard ve Analiz için)"""
-    query = db.query(models.MeterReading).order_by(models.MeterReading.timestamp.desc())
+    query = db.query(models.MeterReading).order_by(models.MeterReading.date.desc())
     
     if days:
         start_date = datetime.now() - timedelta(days=days)
-        query = query.filter(models.MeterReading.timestamp >= start_date)
+        query = query.filter(models.MeterReading.date >= start_date)
     
     if limit:
         query = query.limit(limit)
@@ -28,60 +28,58 @@ def get_vpp_forecast_by_date(db: Session, target_date: date):
     
     # Frontend dostu format
     formatted_data = {
-        "ptf": [r.value for r in results if r.datatype_id == 1],
-        "load": [r.value for r in results if r.datatype_id == 2],
+        "ptf": [r.value for r in results if r.data_typeid == 1],
+        "load": [r.value for r in results if r.data_typeid == 2],
         "hours": sorted(list(set([r.hour for r in results]))) # Benzersiz ve sıralı saatler
     }
     return formatted_data
 
-def get_24h_data_by_type(db: Session, target_date: date, datatype_id: int, model):
+def get_24h_data_by_type(db: Session, target_date: date, data_typeid: int, model):
     """
-    Belirli bir tablo (model) ve veri tipi (datatype_id) için 24 saatlik veriyi çeker.
+    Belirli bir tablo (model) ve veri tipi (data_typeid) için 24 saatlik veriyi çeker.
     model: MarketData veya VPPForecast tablosu
-    datatype_id: 1 (PTF), 2 (LOAD), 3 (SMF)
+    data_typeid: 1 (PTF), 2 (LOAD), 3 (SMF)
     """
     try:
         results =  db.query(model).filter(
             model.date == target_date,
-            model.datatype_id == datatype_id
+            model.data_typeid == data_typeid
         ).order_by(model.date, model.hour).all()
         # Eğer veri 24 saatten eksikse veya hiç yoksa log basabilirsin
         if len(results) < 24:
             print(f"UYARI: {target_date} tarihi için sadece {len(results)} saatlik PTF verisi bulundu.")
+            
         return results
     except Exception as e:
         print(f"HATA: get_24h_ptf_data çalışırken hata oluştu: {e}")
         return []
 
-def insert_meter_reading(db: Session, timestamp, meter_id, consumption, price, smf=None, yal=None, yat=None):
+def insert_meter_reading(db: Session, date, hour, meter_id, value):
     """Yeni IoT veya Piyasa verisi kaydetme fonksiyonu"""
     db_reading = models.MeterReading(
-        timestamp=timestamp,
+        date=date,
+        hour=hour,
         meter_id=meter_id,
-        consumption=consumption,
-        price=price,
-        smf=smf,
-        yal=yal,
-        yat=yat
+        value=value
     )
     db.add(db_reading)
     db.commit()
     db.refresh(db_reading)
     return db_reading
 
-def insert_only_vpp_forecast(db: Session, target_date: date, hour: str, datatype_id: int, value: float):
+def insert_only_vpp_forecast(db: Session, target_date: date, hour: str, data_typeid: int, value: float):
     """Tekli tahmin verisi kaydetme veya güncelleme"""
     # Mevcut veri varsa sil (UniqueConstraint ihlalini önlemek için)
     db.query(VPPForecast).filter(
         VPPForecast.date == target_date,
         VPPForecast.hour == hour,
-        VPPForecast.datatype_id == datatype_id
+        VPPForecast.data_typeid == data_typeid
     ).delete()
 
     db_forecast = VPPForecast(
         date=target_date,
         hour=hour,
-        datatype_id=datatype_id,
+        data_typeid=data_typeid,
         value=value
     )
     db.add(db_forecast)
@@ -102,7 +100,7 @@ def insert_combined_vpp_forecasts(db: Session, ptf_list: list, load_list: list, 
         # Önce o tarihe ait eski PTF(1) ve LOAD(2) verilerini temizle
         db.query(VPPForecast).filter(
             VPPForecast.date == target_date,
-            VPPForecast.datatype_id.in_([1, 2])
+            VPPForecast.data_typeid.in_([1, 2])
         ).delete()
 
         new_records = []
@@ -111,11 +109,11 @@ def insert_combined_vpp_forecasts(db: Session, ptf_list: list, load_list: list, 
             
             # PTF Kaydı (ID: 1)
             ptf_val = ptf_list[i].get('price', 0.0) if i < len(ptf_list) else 0.0
-            new_records.append(VPPForecast(date=target_date, hour=hour_str, datatype_id=1, value=ptf_val))
+            new_records.append(VPPForecast(date=target_date, hour=hour_str, data_typeid=1, value=ptf_val))
             
             # LOAD Kaydı (ID: 2)
             load_val = load_list[i] if i < len(load_list) else 0.0
-            new_records.append(VPPForecast(date=target_date, hour=hour_str, datatype_id=2, value=load_val))
+            new_records.append(VPPForecast(date=target_date, hour=hour_str, data_typeid=2, value=load_val))
 
         db.add_all(new_records)
         db.commit()
@@ -125,7 +123,7 @@ def insert_combined_vpp_forecasts(db: Session, ptf_list: list, load_list: list, 
         print(f"HATA: Kayıt sırasında sorun oluştu: {e}")
 
 # --- VPP FORECAST FONKSİYONLARI (PLAN A / STRATEJİK) ---
-def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, datatype_id: int):
+def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, data_typeid: int):
     try:
         # 1. Tarih Formatı: EPİAŞ'tan gelen 'date' sütununu Python 'date' objesine çevir
         if not pd.api.types.is_datetime64_any_dtype(df['date']):
@@ -136,7 +134,7 @@ def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, datatype_id: int):
         # 2. Temizlik: Mevcut kayıtları sil (Overwrite mantığı)
         db.query(VPPForecast).filter(
             VPPForecast.date.in_(target_dates),
-            VPPForecast.datatype_id == datatype_id
+            VPPForecast.data_typeid == data_typeid
         ).delete(synchronize_session=False)
 
         # 3. Saat Formatı: EPİAŞ'tan bazen "0", "1" gibi rakam gelebilir.
@@ -149,7 +147,7 @@ def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, datatype_id: int):
             VPPForecast(
                 date=row['date'],
                 hour=format_hour(row['hour']), 
-                datatype_id=datatype_id,
+                data_typeid=data_typeid,
                 value=float(row['value'])
             )
             for _, row in df.iterrows()
@@ -165,7 +163,7 @@ def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, datatype_id: int):
 
 from models import MarketData
 
-def bulk_insert_market_data(db: Session, df: pd.DataFrame, datatype_id: int = None):
+def bulk_insert_market_data(db: Session, df: pd.DataFrame, data_typeid: int = None):
     """
     Pandas DataFrame verisini market_data tablosuna toplu olarak ekler.
     data_name: 'PTF', 'SMF', 'YAL', 'YAT' gibi...
@@ -175,14 +173,14 @@ def bulk_insert_market_data(db: Session, df: pd.DataFrame, datatype_id: int = No
         target_dates = df['date'].unique()
         db.query(MarketData).filter(
             MarketData.date.in_(target_dates),
-            MarketData.datatype_id == datatype_id
+            MarketData.data_typeid == data_typeid
         ).delete(synchronize_session=False)
 
         records = [
             MarketData(
                 date=row['date'],
                 hour=row['hour'],
-                datatype_id=datatype_id,
+                data_typeid=data_typeid,
                 value=row['value']
             )
             for _, row in df.iterrows()
@@ -198,10 +196,10 @@ def bulk_insert_market_data(db: Session, df: pd.DataFrame, datatype_id: int = No
 
 
 
-def delete_forecasts_by_date(db: Session, target_date: date, datatype_id: int = None):
+def delete_forecasts_by_date(db: Session, target_date: date, data_typeid: int = None):
     """Belirli bir tarihteki verileri temizler"""
     query = db.query(VPPForecast).filter(VPPForecast.date == target_date)
-    if datatype_id:
-        query = query.filter(VPPForecast.datatype_id == datatype_id)
+    if data_typeid:
+        query = query.filter(VPPForecast.data_typeid == data_typeid)
     query.delete()
     db.commit()

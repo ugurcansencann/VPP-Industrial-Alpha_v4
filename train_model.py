@@ -19,9 +19,9 @@ def run_ml_pipeline(mode="retrain", limit=100):
     engine = create_engine(DB_URL)
     
     if mode == "baseline":
-        query = "SELECT * FROM meter_readings ORDER BY timestamp DESC"
+        query = "SELECT * FROM meter_readings where meter_id='MTR_00001' ORDER BY date DESC"
     else:
-        query = f"SELECT * FROM meter_readings ORDER BY timestamp DESC LIMIT {limit}"
+        query = f"SELECT * FROM meter_readings where meter_id='MTR_00001' ORDER BY date DESC LIMIT {limit}"
     
     try:
         df = pd.read_sql(query, engine)
@@ -31,17 +31,23 @@ def run_ml_pipeline(mode="retrain", limit=100):
         return f"Hata: {str(e)}"
 
     # Feature Engineering (Merkezi hale getirildi)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['hour'] = df['timestamp'].dt.hour
-    df['day_of_week'] = df['timestamp'].dt.dayofweek
-    df['smf'] = df['smf'].fillna(df['price'])
-    df['price_spread'] = (df['smf'] - df['price']) / 1000
-    df['system_direction'] = df['yal'].fillna(0) - df['yat'].fillna(0)
-    df['price_norm'] = df['price'] / 1000 
-    
-    features = ['hour', 'day_of_week', 'price_norm', 'price_spread', 'system_direction']
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date') # Lag verilerin doğru gelmesi için SIRALAMA ŞART
+    df['day_of_week'] = df['date'].dt.dayofweek
+    # [EKLENDİ] Geçmiş tüketim (Lag): Tüketim tahmininde hayati önem taşır
+    df['consumption_lag_1h'] = df['value'].shift(1)
+    df['consumption_lag_24h'] = df['value'].shift(24)
+    #df['smf'] = df['smf'].fillna(df['price'])
+    #df['price_spread'] = (df['smf'] - df['price']) / 1000
+    #df['system_direction'] = df['yal'].fillna(0) - df['yat'].fillna(0)
+    #df['price_norm'] = df['price'] / 1000 
+    # [KRİTİK] İlk 24 satır boş (NaN) kalacaktır, bunları temizlemelisin
+    df = df.dropna(subset=['consumption_lag_1h', 'consumption_lag_24h', 'value'])
+    features = ['hour', 'day_of_week', 'consumption_lag_1h', 'consumption_lag_24h']
+    # Eksik veri içeren satırları son bir kez temizliyoruz
+    #df = df.dropna(subset=features + ['consumption'])
     X = df[features]
-    y = df['consumption']
+    y = df['value']
 
     # --- DATA SPLIT & EVALUATION ---
     # Veriyi %80 Eğitim, %20 Test olarak ayırıyoruz
