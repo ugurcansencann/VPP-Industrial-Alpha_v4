@@ -4,21 +4,15 @@ from pulp import LpProblem, LpMinimize, LpVariable, value, PULP_CBC_CMD
 from fastapi.responses import HTMLResponse
 # Veritabanı bileşenleri
 from sqlalchemy.orm import Session
-from database import engine, Base, SessionLocal
 import crud
-from models import MeterReading
+from models import MeterReading, MarketData, VPPForecast, VPPMeterForecast, MLModelSimulation
 from kpi_engine import calculate_vpp_performance
+import numpy as np
 
-# --- VERİTABANI BAĞLANTI YÖNETİCİSİ ---
-# Bu fonksiyon Depends(get_db) için gereklidir
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+# Modellerin hafızaya yüklenmesi için bu import şart
 # Tabloları oluştur (Eğer tablolar silindiyse otomatik oluşturur)
+from database_setup import SessionLocal, engine, Base, get_db # main'de tanımlama, buradan çek
+import models 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="VPP-Industrial-Alpha API")
@@ -44,45 +38,107 @@ def dashboard():
             return f.read()
     except FileNotFoundError:
         return "<h1>Dashboard dosyası (templates/index.html) bulunamadı!</h1>"
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from forecast_opt_service import calculate_vpp_optimization, summarize_vpp_results
+async def ensure_forecast_exists(db: Session, target_date, meter_id):
+    """
+    Bölüm 1: Eğer veritabanında o güne ait veri yoksa tahmin üretir.
+    """
+    existing_count = db.query(VPPMeterForecast).filter(
+        VPPMeterForecast.date == target_date,
+        VPPMeterForecast.meter_id == meter_id
+    ).count()
 
-from models import MarketData, VPPForecast
+    if existing_count >= 24:
+        return # Veri zaten var, tahmine gerek yok.
+
+    # Tahmin üretme mantığı buraya (Eski Bölüm 1)
+    recent_readings = db.query(MeterReading).filter(MeterReading.meter_id == meter_id)\
+        .order_by(MeterReading.date.desc(), MeterReading.hour.desc()).limit(24).all()
+
+    if len(recent_readings) < 24:
+        raise Exception("Tahmin için yeterli geçmiş veri yok.")
+
+    day_of_week = target_date.weekday()
+    lag_1h, lag_24h = recent_readings[0].value, recent_readings[23].value
+    
+    forecast_objects = []
+    for h in range(24):
+        input_df = pd.DataFrame([[h, day_of_week, lag_1h, lag_24h]], 
+                                columns=['hour', 'day_of_week', 'lag_1', 'lag_24'])
+        prediction = float(model.predict(input_df)[0])
+        forecast_objects.append(VPPMeterForecast(
+            date=target_date, hour=f"{h:02d}:00", 
+            predicted_value=round(prediction, 3), meter_id=meter_id
+        ))
+    
+    db.add_all(forecast_objects)
+    db.commit()
+
 @app.get("/api/v1/market-data/planA")
 async def get_latest_market_data_planA(db: Session = Depends(get_db)):
+    if model is None:
+        raise HTTPException(status_code=500, detail="ML Modeli (.pkl) bulunamadı.")
+
     now = datetime.now()
-    
-    # 1. Hedef Tarih Belirleme (14:00 Kuralı)
-    # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
     if now.hour >= 14:
-        target_date = now.date() + timedelta(days=1)
+        target_date = now.date() + timedelta(days=0)
     else:
         target_date = now.date()
-    
-    # 2. Verileri Çek
-    ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
-    load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
-    
-    # 3. Fallback (Yarın verisi henüz manuel girilmemişse bugüne dön)
-    if not ptf_results and target_date > now.date():
-        target_date = now.date()
-        ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
-        load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
-    
-    # 4. Veri Birleştirme (Frontend'in beklediği format)
-    # 24 saatlik bir sözlük oluşturarak ptf ve load'u eşleştiriyoruz
-    combined = {f"{i:02d}:00": {"hour": f"{i:02d}:00", "ptf": 0.0, "load": 0.0} for i in range(24)}
-    
-    for r in ptf_results:
-        combined[r.hour]["ptf"] = round(float(r.value), 2)
-    
-    for r in load_results:
-        combined[r.hour]["load"] = round(float(r.value), 2)
+    meter_id = "MTR_00001"
 
-    return {
-        "status": "success",
-        "date": target_date.strftime('%Y-%m-%d'),
-        "is_tomorrow": target_date > now.date(),
-        "data": list(combined.values())
-    }
+    try:
+        # --- BÖLÜM 1: TAHMİN ÜRET VE KAYDET ---
+        # --- ADIM 1: KONTROL VE TAHMİN (Sadece gerekiyorsa çalışır) ---
+        await ensure_forecast_exists(db, target_date, meter_id)
+
+        # --- BÖLÜM 2: VERİ BİRLEŞTİRME & SERVİS İLE OPTİMİZASYON ---
+        results = db.query(
+            VPPMeterForecast.hour,
+            VPPMeterForecast.predicted_value.label("load"),
+            MarketData.value.label("ptf")
+        ).outerjoin(
+            MarketData, 
+            and_(
+                MarketData.date == VPPMeterForecast.date,
+                MarketData.hour == VPPMeterForecast.hour,
+                MarketData.data_typeid == 1
+            )
+        ).filter(VPPMeterForecast.date == target_date, VPPMeterForecast.meter_id == meter_id)\
+         .order_by(VPPMeterForecast.hour.asc()).all()
+
+        dashboard_data = []
+        for r in results:
+            # Veritabanından PTF veya Load boş (None) gelmiş olabilir.
+            # 'or 0.0' kullanarak None gelmesi durumunda 0.0 atanmasını garanti ediyoruz.
+            ptf_val = float(r.ptf) if r.ptf is not None else 0.0
+            load_val = float(r.load) if r.load is not None else 0.0
+            
+            # Servisi çağırırken artık None gitme ihtimali yok
+            opt_results = calculate_vpp_optimization(load_val, ptf_val, smf=None)
+            
+            dashboard_data.append({
+                "hour": r.hour,
+                "ptf": ptf_val,
+                **opt_results
+            })
+
+        # Özet verileri servis üzerinden toparla
+        summary = summarize_vpp_results(dashboard_data)
+
+        return {
+            "status": "success",
+            "metadata": {
+                "target_date": target_date.isoformat(),
+                **summary
+            },
+            "data": dashboard_data
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
 
 from fastapi import FastAPI, Query
 from datetime import datetime, timedelta
@@ -94,7 +150,7 @@ async def get_latest_market_data_planB(db: Session = Depends(get_db)):
     # 1. Hedef Tarih Belirleme (14:00 Kuralı)
     # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
     if now.hour >= 14:
-        target_date = now.date() + timedelta(days=1)
+        target_date = now.date() + timedelta(days=0)
     else:
         target_date = now.date()
     
@@ -137,7 +193,7 @@ async def get_latest_market_data_planF(db: Session = Depends(get_db)):
     # 1. Hedef Tarih Belirleme (14:00 Kuralı)
     # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
     if now.hour >= 14:
-        target_date = now.date() + timedelta(days=1)
+        target_date = now.date() + timedelta(days=0)
     else:
         target_date = now.date()
     
@@ -169,103 +225,6 @@ async def get_latest_market_data_planF(db: Session = Depends(get_db)):
     }
 
 
-# --- 2. DİNAMİK OPTİMİZASYON (Piyasa Odaklı) ---
-@app.get("/optimize")
-def get_optimization(hour: int, day_of_week: int, ptf: float, smf: float = None):
-    # 1. Maliyet Analizi: SMF varsa maliyeti o belirler (Dengesizlik riski)
-    # Eğer SMF > PTF ise sistem 'Enerji Açığı' durumundadır, yük kısmak daha değerlidir.
-    actual_cost = smf if (smf and smf > ptf) else ptf
-    
-    cache_key = f"opt_v4_{hour}_{day_of_week}_{actual_cost}"
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return json.loads(cached_data)
-
-    if not model:
-        return {"error": "ML Modeli yüklenemedi."}
-
-    # 2. ML Yük Tahmini (Baseline)
-    input_data = pd.DataFrame([[hour, day_of_week]], columns=['hour', 'day_of_week'])
-    predicted_load = model.predict(input_data)[0]
-    
-    # 3. Dinamik Esneklik Stratejisi
-    # Fiyat çok yüksekse veya sistemde açık varsa (SMF > PTF), esneklik sınırını %30'a (0.70) çıkarıyoruz.
-    is_critical = True if (smf and smf > ptf * 1.2) else False
-    flex_limit = 0.70 if is_critical else 0.85 
-    
-    # 4. Doğrusal Programlama (PuLP)
-    prob = LpProblem("Maliyet_Minimizasyonu", LpMinimize)
-    consumption_var = LpVariable("Optimal_Tuketim", 
-                                 lowBound=predicted_load * flex_limit, 
-                                 upBound=predicted_load)
-    
-    # Amaç: Tüketim maliyetini minimize et
-    prob += consumption_var * actual_cost
-    prob.solve(PULP_CBC_CMD(msg=0)) # Logları kapatır
-    
-    optimized_load = value(consumption_var)
-    potential_saving = (predicted_load - optimized_load) * actual_cost
-    
-    # 5. Dashboard İçin Anlamlandırılmış Çıktı
-    result = {
-        "hour": f"{hour:02d}:00",
-        "base_load": round(predicted_load, 2),
-        "target_load": round(optimized_load, 2),
-        "reduction_amount": round(predicted_load - optimized_load, 2),
-        "potential_savings_tl": round(potential_saving, 2),
-        "recommendation": "AGRESİF KISINTI" if is_critical else "STANDART OPTİMİZASYON",
-        "market_status": "ENERJİ AÇIĞI" if is_critical else "STABİL"
-    }
-    
-    cache.setex(cache_key, 3600, json.dumps(result))
-    return result
-
-@app.get("/daily-summary")
-def get_daily_summary():
-    # 24 saatlik veriyi döngüye alıp optimize değerlerini topluyoruz
-    total_savings = 0
-    hourly_details = []
-    
-    for h in range(24):
-        # Örnek ptf ve smf verileri (DB'den veya API'den gelecek)
-        res = get_optimization(hour=h, day_of_week=1, ptf=2500.0) 
-        total_savings += res["potential_savings_tl"]
-        hourly_details.append(res)
-        
-    return {
-        "total_daily_savings": round(total_savings, 2),
-        "data": hourly_details
-    }
-
-## Eski ENDPOINTLER
-# --- 3. KPI VE PERFORMANS TAKİBİ ---
-@app.get("/vpp-performance/{meter_id}")
-def get_vpp_metrics(meter_id: str, db: Session = Depends(get_db)):
-    # Burada tek bir cihazın son verisi gerektiği için 
-    # crud içindeki fonksiyonunun doğru çalıştığından emin ol
-    reading = crud.get_readings(db, meter_id=meter_id)
-    
-    if not reading:
-        raise HTTPException(status_code=404, detail="Cihaz verisi bulunamadı")
-
-    # KPI motorunu çalıştır (Yeni SMF verisiyle)
-    metrics = calculate_vpp_performance(
-        actual_consumption=reading.consumption,
-        actual_price=reading.price,
-        smf=getattr(reading, 'smf', reading.price) # SMF yoksa PTF kullan
-    )
-    
-    return {
-        "meter_id": meter_id,
-        "timestamp": reading.timestamp,
-        "current_values": {
-            "consumption": reading.consumption,
-            "ptf": reading.price,
-            "smf": getattr(reading, 'smf', None)
-        },
-        "kpi_metrics": metrics
-    }
-
 # --- 4. GEÇMİŞ VERİ VE DASHBOARD --- # --- REFRESH LOGIC ---
 @app.get("/history")
 def get_history(db: Session = Depends(get_db)):
@@ -277,21 +236,121 @@ def get_history(db: Session = Depends(get_db)):
     return history[::-1]
 
 # --- 1. MODEL YENİDEN EĞİTİM (MLOps) ---
-@app.post("/retrain")
+from fastapi import APIRouter, Depends
+from train_model import run_ml_pipeline
+from forecast_opt_service import generate_and_save_forecasts
+
+@app.post("/vpp/retrain")
 def retrain_model():
+    """Dashboard'dan gelen 'Eğit' isteği. 
+    Limitli veri (örn: son 168 saat) ile .pkl'yi tazeler."""
+    result = run_ml_pipeline(mode="retrain", limit=168)
+    return {"status": "Model Güncellendi", "metrics": result}
+
+@app.post("/vpp/generate-forecast")
+def trigger_forecast(db: Session = Depends(get_db)):
+    """Plan A'ya basınca çalışacak kısım. 
+    Mevcut .pkl'yi kullanır ve tahminleri DB'ye yazar."""
+    count = generate_and_save_forecasts(db)
+    return {"status": "Başarılı", "saved_forecast_count": count}
+
+@app.get("/vpp/dashboard-data")
+def get_dashboard_data(db: Session = Depends(get_db)):
+    """Dashboard grafiklerine basılacak veriyi döndürür."""
+    forecasts = db.query(VPPForecast).order_by(VPPForecast.date.desc()).limit(24).all()
+    # Market verilerini de buraya ekleyebilirsin
+    return {"forecasts": forecasts}
+
+from train_model import train_and_log_model
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from datetime import datetime
+import joblib
+import pandas as pd
+
+@app.post("/api/v1/retrain-and-refresh")
+async def retrain_and_refresh(db: Session = Depends(get_db)):
     try:
-        # train_model.py dosyasını çalıştırır
-        result = subprocess.run(["python", "train_model.py"], capture_output=True, text=True)
-        if result.returncode != 0:
-            return {"status": "error", "message": result.stderr}
+        now = datetime.now()
+        target_date = now.date()
+        current_hour = now.hour
+        meter_id = "MTR_00001"
+
+        # 1. Eğitim Verisini Çek ve Model Eğit
+        readings = db.query(MeterReading).filter(MeterReading.meter_id == meter_id).all()
+        if not readings:
+            raise Exception("Eğitim için veritabanında okuma bulunamadı.")
             
-        global model
-        model = joblib.load("consumption_model.pkl")
-        cache.flushdb() 
-        return {"status": "success", "message": "Model yeni piyasa verileriyle (SMF/PTF) eğitildi!"}
+        path, params, metrics, features, count = train_and_log_model(readings)
+
+        # Eğitim tarih aralığını belirle
+        start_dt = min(r.date for r in readings)
+        end_dt = max(r.date for r in readings)
+
+        # 2. Rolling Forecast ve Finansal Hesaplama Hazırlığı
+        active_model = joblib.load("consumption_model.pkl")
+        latest_actual = db.query(MeterReading).filter(MeterReading.meter_id == meter_id)\
+                          .order_by(MeterReading.date.desc(), MeterReading.hour.desc()).first()
+
+        total_kwh_reduction = 0.0
+        total_tl_savings = 0.0
+
+        # Kalan saatler için revize tahminler
+        for h in range(current_hour + 1, 24):
+            input_df = pd.DataFrame([[h, target_date.weekday(), latest_actual.value, latest_actual.value]], 
+                                    columns=['hour', 'day_of_week', 'lag_1', 'lag_24'])
+            
+            new_pred = float(active_model.predict(input_df)[0])
+            
+            # --- TASARRUF HESABI (Opsiyonel: Eğer fiyat tablon varsa oradan çekebilirsin) ---
+            # Şimdilik örnek: Tahmin edilenin %10'u kadar bir optimizasyon öngörüldüğünü varsayalım
+            # Veya sadece toplam tahmin edilen yükü toplayabilirsin.
+            total_kwh_reduction += (new_pred * 0.15) # Örn: %15 yük kaydırma potansiyeli
+            total_tl_savings += (new_pred * 0.15 * 2.5) # Örn: 2.5 TL birim fiyat üzerinden
+
+            # DB Güncelleme
+            db.query(VPPMeterForecast).filter(
+                VPPMeterForecast.date == target_date,
+                VPPMeterForecast.hour == f"{h:02d}:00",
+                VPPMeterForecast.meter_id == meter_id
+            ).update({"predicted_value": round(new_pred, 3)})
+
+        # 3. Kapsamlı Log Oluşturma
+        new_log = MLModelSimulation(
+            run_date = datetime.now(),
+            model_name=os.path.basename(path),
+            model_path=path,
+            rmse=metrics["rmse"],
+            mae=metrics["mae"],
+            r2_score=metrics["r2"],
+            mape=metrics.get("mape"),
+            sample_count=count,
+            training_start_date=start_dt,
+            training_end_date=end_dt,
+            simulated_total_reduction=round(total_kwh_reduction, 2),
+            simulated_total_savings=round(total_tl_savings, 2),
+            hyperparameters=params,
+            features_used=features,
+            training_notes=f"Kullanıcı tetiklemeli rolling update. Saat: {current_hour}:00"
+        )
+        
+        db.add(new_log)
+        db.commit() # Tüm işlemler başarılıysa tek seferde commit
+        
+        return {
+            "status": "success",
+            "metrics": metrics,
+            "simulation_id": new_log.id,
+            "summary": {
+                "savings": f"{total_tl_savings:.2f} ₺",
+                "reduction": f"{total_kwh_reduction:.2f} kWh"
+            }
+        }
+
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
-    
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Sistem Hatası: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

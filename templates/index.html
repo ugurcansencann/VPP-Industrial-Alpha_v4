@@ -175,6 +175,102 @@
             max-height: 600px;
             overflow-y: auto;
         }
+        /* Tablonun genel konteyneri */
+        .vpp-mini-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 4px; /* Satırlar arası hafif boşluk */
+            background: transparent !important; /* Arka planı tamamen kaldır */
+            margin-top: 15px;
+        }
+
+        /* Başlıklar */
+        .vpp-mini-table th {
+            color: #64748b !important; /* Slate-500: Daha sönük ve şık */
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border: none !important;
+            padding-bottom: 10px !important;
+        }
+
+        /* Satırlar */
+        .vpp-mini-table tr {
+            background: rgba(255, 255, 255, 0.02); /* Çok hafif satır belirginliği */
+            transition: background 0.3s;
+        }
+
+        .vpp-mini-table tr:hover {
+            background: rgba(255, 255, 255, 0.05); /* Üzerine gelince hafif parlama */
+        }
+
+        /* Hücreler */
+        .vpp-mini-table td {
+            padding: 10px 8px !important;
+            border: none !important;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Değerlerin Stilize Edilmesi */
+        .vpp-val-kwh {
+            color: #22d3ee; /* Plan A Turkuazı */
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .vpp-val-tl {
+            color: #fbbf24; /* Plan B Sarısı / Tasarruf Rengi */
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .vpp-unit {
+            font-size: 0.7rem;
+            color: #475569;
+            margin-left: 3px;
+            font-weight: normal;
+        }
+
+        .text-label {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .optimization-row {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .unit-label {
+            color: #f8fafc;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .small-tag, .small-tag-tl {
+            font-size: 0.6rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        .data-value {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .highlight-kwh { color: #fbbf24; }
+        .highlight-tl { color: #4ade80; }
+
+        .text-dim { color: #94a3b8; }
+
+        /* Değerlerin stilleri */
+        #shift-total-kwh { color: #dbb715; font-weight: 700; } /* Turkuaz */
+        #shift-total-tl { color: #32d61c; font-weight: 700; }  /* Yeşil (Tasarruf olduğu için) */
+        .text-dim { color: #98a6b9; } /* Daha sönük metinler için */
     </style>
 </head>
 <body>
@@ -216,13 +312,43 @@
             </div>
 
             <!-- PANEL 2: MALİYET OPTİMİZASYONU (ESKİ 1) -->
-            <div class="col-md-3">                
-                <div id="card-plan-a" class="vpp-card plan-card clickable" style="min-height: 230px;" onclick="switchMode('A')">
+            <div class="col-md-3">
+                <div id="card-plan-a" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #ffffff;" onclick="switchMode('A')">
                     <div class="card-title" style="font-size: 1.2rem;">Maliyet Optimizasyonu</div>
-                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>
-                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN A: Arbitrage</div>
-                    <div class="small text-dim mt-2" id="plan-a-label">Beklenen PTF Ort.:</div>
-                    <div class="h2 mb-1" id="plan-a-price">-- <small>₺</small></div>
+                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 12px;"></div>
+                    
+                    <div class="small text-dim" style="font-size: 0.9rem; margin-bottom: 10px;">Yük Kaydırma Potansiyeli</div>
+            
+                    <div class="d-flex justify-content-between px-2 mb-1" style="font-size: 0.65rem; color: #64748b; letter-spacing: 1px;">
+                        <div style="width: 40%;">BİRİM</div>
+                        <div style="width: 30%; text-align: center;">Ortalama</div>
+                        <div style="width: 30%; text-align: right;">Toplam</div>
+                    </div>
+            
+                    <div class="optimization-row mb-2">
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40%;">
+                                <div class="small-tag">Enerji</div>
+                                <span class="unit-label">kWh</span>                                
+                            </div>
+                            <div class="data-value text-center" style="width: 30%;" id="shift-avg-kwh">0.00</div>
+                            <div class="data-value text-end highlight-kwh" style="width: 30%;" id="shift-total-kwh">0.00</div>
+                        </div>
+                    </div>
+            
+                    <div class="optimization-row">
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40%;">
+                                <div class="small-tag-tl">Tasarruf</div>
+                                <span class="unit-label">TL</span>                                
+                            </div>
+                            <div class="data-value text-center" style="width: 30%;" id="shift-avg-tl">0.00</div>
+                            <div class="data-value text-end highlight-tl" style="width: 30%;" id="shift-total-tl">0.00</div>
+                        </div>
+                    </div>
+            
+                    <div id="plan-a-label" style="display:none;"></div>
+                    <div id="plan-a-price" style="display:none;"></div>
                 </div>
             </div>
 
@@ -231,7 +357,8 @@
                 <div id="card-plan-b" class="vpp-card plan-card clickable active-plan" style="min-height: 230px;" onclick="switchMode('B')">
                     <div class="card-title" style="font-size: 1.2rem;">Dengesizlik Yönetimi</div>
                     <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>                    
-                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Response</div>  
+                    
+                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Response</div>                    
                     <div class="small text-dim mt-2" id="plan-b-label">Son Saat Spread:</div>
                     <div class="h2 mb-1" id="plan-b-price">0.00 <small>₺</small></div>
                 </div>
@@ -269,17 +396,47 @@
                         </button>
                         <button class="btn btn-vpp-outline w-100 py-3" onclick="fetchHistory()">MANUAL REFRESH</button>
                         
-                        <!-- BURAYA TAŞINDI: Enerji Optimizasyonu -->
-                        <div class="mt-3 pt-3 border-top border-secondary">
-                            <div class="card-title text-white" style="font-size: 1rem; font-weight: 600;">Enerji Optimizasyonu</div>
-                            <div class="small text-dim mt-2">Yük Kaydırma Potansiyeli</div>
-                            <div class="h3 mb-0" id="shift-amount" style="color: #f59e0b;">0.00 <small style="font-size: 0.5em;">kWh</small></div>
-                        </div>            
-                        <div class="mt-auto pt-3 border-top border-secondary">
-                            <div class="small text-dim mb-1">Hata Payı (MAE): <b id="metric-mae" class="text-white">...</b></div>
-                            <div class="small text-dim mb-2">Model Score (R²): <b id="metric-r2" class="text-white">...</b></div>
-                            <button class="btn btn-sm btn-dark w-100 text-dim" onclick="retrainModel()">Trigger ML Retrain</button>
+                                   
+                        <div class="mt-4 border-top border-secondary pt-3">
+                            <!-- MAE -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold" style="color: #f8fafc; letter-spacing: 0.5px; font-size: 0.7rem;">
+                                    <i class="fas fa-chart-line me-2" style="color: #ffffff; opacity: 0.8;"></i>ORTALAMA HATA (MAE)
+                                </span>
+                                <span id="mae-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">0.00 ₺</span>
+                            </div>
+                        
+                            <!-- MAPE -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold" style="color: #f8fafc; letter-spacing: 0.5px; font-size: 0.7rem;">
+                                    <i class="fas fa-percentage me-2" style="color: #ffffff; opacity: 0.8;"></i>YÜZDESEL HATA (MAPE)
+                                </span>
+                                <span id="mape-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">%0.00</span>
+                            </div>
+                        
+                            <!-- RMSE -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold" style="color: #f8fafc; letter-spacing: 0.5px; font-size: 0.7rem;">
+                                    <i class="fas fa-sigma me-2" style="color: #ffffff; opacity: 0.8;"></i>STANDART SAPMA (RMSE)
+                                </span>
+                                <span id="rmse-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">0.00</span>
+                            </div>
+                            
+                            <!-- R2 SCORE -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="fw-bold" style="color: #f8fafc; letter-spacing: 0.5px; font-size: 0.7rem;">
+                                    <i class="fas fa-bullseye me-2" style="color: #ffffff; opacity: 0.8;"></i>MODEL SCORE (R²)
+                                </span>
+                                <span id="r2-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">0.0000</span>
+                            </div>
+                        
+                            <button id="retrain-btn" onclick="retrainModel()" 
+                                    class="btn btn-outline-light w-100 py-2 shadow-sm fw-bold" 
+                                    style="font-size: 0.7rem; letter-spacing: 1px; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05);">
+                                <i class="fas fa-microchip me-2"></i> RETRAIN AND RE-OPTIMIZE MODEL
+                            </button>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -346,58 +503,51 @@
 
     if (mode === 'A') {
     try {
-        // 1. İki endpoint'i de paralel olarak çağır (Performans için)
-        const [planAResp, summaryResp] = await Promise.all([
-            fetch('/api/v1/market-data/planA'),
-            fetch('/daily-summary')
-        ]);
+        // 1. Tek endpoint üzerinden tüm veriyi (tahmin + optimizasyon + ptf) al
+        const response = await fetch('/api/v1/market-data/planA');
+        const result = await response.json();
 
-        const planAResult = await planAResp.json();
-        const summaryResult = await summaryResp.json();
+        if (result.status === "success" && result.data) {
+            const combinedData = result.data; 
+            const metadata = result.metadata; 
 
-        if (planAResult.status === "success" && summaryResult.data) {
-            const marketData = planAResult.data; // PTF ve LOAD burada
-            const optData = summaryResult.data;  // Tasarruf verileri burada
-
-            // --- VERİ BİRLEŞTİRME (MERGE) ---
-            // Optimizasyon verisini baz alıp içine PTF değerini ekliyoruz
-            const combinedData = optData.map(optItem => {
-                // marketData içinden aynı saate sahip veriyi bul
-                const marketItem = marketData.find(m => m.hour === optItem.hour);
-                return {
-                    ...optItem,
-                    ptf: marketItem ? marketItem.ptf : 0 // PTF'i market verisinden çek
-                };
-            });
-
-            // 2. UI Güncellemeleri
+            // 2. UI Başlık/Etiket Güncelleme
             updatePlanALabel();
 
-            // Sarı Sayı: Toplam Tasarruf
-            const savingsElement = document.getElementById('plan-a-price');
-            if (savingsElement) {
-                savingsElement.innerHTML = `${summaryResult.total_daily_savings} <small>₺</small>`;
-            }
+            // 3. SARI SAYI: Toplam Tasarruf (Metadata'dan gelir)
+            // 1. kWh Satırı (Kısıntı/Kaydırma)
+            document.getElementById('shift-total-kwh').innerText = metadata.total_reduction_kwh.toFixed(2);
+            // Ortalama için toplam kısıntıyı 24 saate bölüyoruz
+            document.getElementById('shift-avg-kwh').innerText = metadata.avg_reduction_kwh.toFixed(2);
 
-            // 3. Grafik Güncelleme
+            // 2. TL Satırı (Tasarruf)
+            document.getElementById('shift-total-tl').innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
+            document.getElementById('shift-avg-tl').innerText = metadata.avg_savings_tl.toFixed(2);
+
+            // Eski ID'leri de dolduralım ki diğer fonksiyonlar hata vermesin
+            document.getElementById('plan-a-price').innerText = metadata.total_savings_tl;
+            // 4. GRAFİK GÜNCELLEME
             updateChart(
                 combinedData.map(d => d.hour),
-                combinedData.map(d => d.base_load), // Load verisi artık combined içinde de var
-                combinedData.map(d => d.ptf),
-                'ML Yük Tahmini (kWh)'
+                combinedData.map(d => d.ptf), // Tahmin edilen yük
+                combinedData.map(d => d.load),  // Piyasa fiyatı
+                'ML Sayaç Tahmini (kWh)'
             );
 
-            // 4. TABLOYU GÜNCELLE (Birleştirilmiş veri gidiyor)
-            console.log("Tabloya gönderilen birleştirilmiş veri:", combinedData);
+            // 5. TABLO GÜNCELLEME
+            // combinedData içindeki reduction, savings ve action alanlarını tabloya paslar
             renderTableUnified(combinedData, 'A');
 
-            // Ekranın sağındaki analiz paneli için
-            updateMarketUI([...marketData].sort((a, b) => a.ptf - b.ptf), 'A');
+            // 6. SAĞ ANALİZ PANELİ (Piyatı en düşükten yükseğe sırala)
+            updateMarketUI([...combinedData].sort((a, b) => a.ptf - b.ptf), 'A');
+
+        } else {
+            console.warn("Plan A verisi alınamadı:", result.message);
         }
-            } catch (error) {
-                console.error("Plan A veri birleştirme hatası:", error);
-            }
-        } else if (mode === 'F'){
+        } catch (error) {
+            console.error("Plan A veri işleme hatası:", error);
+        }
+    } else if (mode === 'F'){
         try {
             const response = await fetch('/api/v1/market-data/planF');
             const result = await response.json();
@@ -501,23 +651,44 @@
         if (!tableHead || !tableBody) return;
         console.log("mode:", mode);
         if (mode === 'A') {
-            console.log("mode:", mode);
-            tableHead.innerHTML = `<tr><th>SAAT</th><th>ML YÜK (KWH)</th><th>PTF (₺)</th><th>KISINTI (kWh)</th><th>TASARRUF (₺)</th><th>AKSİYON</th></tr>`;
+            console.log("Tablo render ediliyor, Mod:", mode);
+            
+            // Tablo Başlıklarını Düzenle
+            tableHead.innerHTML = `
+                <tr>
+                    <th>SAAT</th>
+                    <th>ML YÜK (kWh)</th>
+                    <th>PTF (₺)</th>
+                    <th>KISINTI (kWh)</th>
+                    <th>TASARRUF (₺)</th>
+                    <th>AKSİYON</th>
+                </tr>`;
+
+            // Tablo Satırlarını Oluştur
             tableBody.innerHTML = data.map(item => {
-                // Backend'den 'potential_savings_tl' olarak geliyor
-                const saving = item.potential_savings_tl || 0; 
-                const isHighSaving = saving > 100;
+                // Backend'den (forecast_service) gelen isimler:
+                // reduction -> Kısıntı miktarı
+                // savings -> Elde edilen tasarruf
+                // action -> 'YÜK KAYDIR' veya 'NORMAL'
+                
+                const saving = item.savings || 0; 
+                const reduction = item.reduction || 0;
+                const actionLabel = item.action || 'NORMAL';
+                
+                // Aksiyon durumuna göre renk/badge belirle
+                const isActionRequired = actionLabel === 'YÜK KAYDIR';
 
                 return `
                     <tr>
                         <td style="color: #94a3b8;">${item.hour}</td>
-                        <td style="font-weight: bold; color: #fbbf24;">${item.base_load}</td>
-                        <td style="color: #22d3ee;">${item.ptf}</td>
-                        <td style="color: #22d3ee;">${item.reduction_amount}</td>
+                        <td style="font-weight: bold; color: #fbbf24;">${item.load.toFixed(2)}</td>
+                        <td style="color: #22d3ee;">${item.ptf.toFixed(2)}</td>
+                        <td style="color: #f87171;">${reduction.toFixed(2)}</td>
                         <td style="color: #4ade80; font-weight: bold;">+${saving.toFixed(2)} ₺</td>
                         <td>
-                            <span class="badge ${isHighSaving ? 'bg-success' : 'bg-secondary'}">
-                                ${isHighSaving ? 'YÜK KAYDIR' : 'STABİL'}
+                            <span class="badge ${isActionRequired ? 'bg-warning text-dark' : 'bg-secondary'}">
+                                <i class="bi ${isActionRequired ? 'bi-exclamation-triangle-fill' : 'bi-check-circle'}"></i>
+                                ${actionLabel}
                             </span>
                         </td>
                     </tr>
@@ -730,37 +901,40 @@
     
     // Plana göre chart
     function updateChart(labels, mainData, secondaryData, secondaryLabel) {
-        const ctx = document.getElementById('marketChart').getContext('2d');
-        const titleElement = document.getElementById('chart-title');
-        const titles = {
-            'A': 'Plan A: PTF vs Tahmin Karşılaştırması',
-            'B': 'Plan B: Fiyat Trend Analizi (PTF vs SMF)',
-            'F': 'Plan F: [Buraya F Modu Başlığını Yazın]'
-        };
-
-        // Varsayılan bir başlık belirlemek için "||" kullanabilirsin
-        titleElement.innerText = titles[currentMode] || 'Varsayılan Başlık';
-        // Başlığı HTML'de anında değiştir
-        switch (currentMode) {
-            case 'A':
-                titleElement.innerText = 'Plan A: PTF vs Yük Tahmin Karşılaştırması';
-                break;
-            case 'B':
-                titleElement.innerText = 'Plan B: Fiyat Trend Analizi (PTF vs SMF)';
-                break;
-            case 'F':
-                titleElement.innerText = 'Plan F: PTF vs Tahmini PTF Karşılaştırması';
-                break;
-            default:
-                titleElement.innerText = 'Genel Görünüm';
+    const ctx = document.getElementById('marketChart').getContext('2d');
+    const titleElement = document.getElementById('chart-title');
+    
+    // 1. MOD BAZLI BAŞLIK VE RENK ATAMALARI
+    const config = {
+        'A': {
+            title: 'Plan A: PTF vs Yük Tahmin Karşılaştırması',
+            primaryColor: '#22d3ee',   // Cyan (PTF)
+            secondaryColor: '#f8fafc', // Parlak Beyaz/Gri (Tahmin - Mor yerine daha temiz)
+            isSecondaryDashed: true,   // Tahmin olduğu belli olsun diye kesikli
+            fillPrimary: true
+        },
+        'B': {
+            title: 'Plan B: Fiyat Trend Analizi (PTF vs SMF)',
+            primaryColor: '#22d3ee',   
+            secondaryColor: '#fbbf24', // Amber (SMF)
+            isSecondaryDashed: false,
+            fillPrimary: false
+        },
+        'F': {
+            title: 'Plan F: PTF vs Tahmini PTF Karşılaştırması',
+            primaryColor: '#22d3ee',   
+            secondaryColor: '#f43f5e', // Rose (Plan F Tahmini)
+            isSecondaryDashed: false,
+            fillPrimary: true
         }
+    };
 
-        if (myChart) myChart.destroy();
+    const currentCfg = config[currentMode] || { title: 'Genel Görünüm', primaryColor: '#22d3ee', secondaryColor: '#94a3b8' };
+    titleElement.innerText = currentCfg.title;
 
-        // 2. MOD BAZLI EKSEN VE STİL AYARLARI
-    // Plan F'de her iki veri de fiyat olduğu için tek eksen (sol) kullanıyoruz.
+    if (myChart) myChart.destroy();
+
     const isPlanF = currentMode === 'F';
-    const isPlanA = currentMode === 'A';
 
     myChart = new Chart(ctx, {
         type: 'line',
@@ -770,21 +944,23 @@
                 { 
                     label: 'Gerçek PTF (₺)', 
                     data: mainData, 
-                    borderColor: '#22d3ee', // Cyan
-                    backgroundColor: 'rgba(34, 211, 238, 0.1)',
-                    fill: isPlanA || isPlanF, // Tahmin kıyaslamasında alan doldurma iyi durur
+                    borderColor: currentCfg.primaryColor, 
+                    backgroundColor: `${currentCfg.primaryColor}1A`, 
+                    fill: currentCfg.fillPrimary,
                     tension: 0.3,
+                    pointRadius: 0, // Çizgi daha temiz görünsün diye noktaları gizledik
                     yAxisID: 'y' 
                 },
                 { 
                     label: secondaryLabel, 
                     data: secondaryData, 
-                    borderColor: isPlanF ? '#f59e0b' : (isPlanA ? '#f43f5e' : '#fbbf24'), // F modu için Amber/Turuncu
-                    borderDash: isPlanF ? [] : (isPlanA ? [] : [5, 5]), 
-                    backgroundColor: isPlanF ? 'rgba(245, 158, 11, 0.05)' : 'transparent',
-                    fill: isPlanF, 
+                    borderColor: currentCfg.secondaryColor, 
+                    borderDash: currentCfg.isSecondaryDashed ? [5, 5] : [], 
+                    borderWidth: 2,
+                    backgroundColor: 'transparent',
+                    fill: false, 
                     tension: 0.4,
-                    // KRİTİK: Plan F ise veriyi sol eksene (y), değilse sağ eksene (y1) bağla
+                    pointRadius: 0,
                     yAxisID: isPlanF ? 'y' : 'y1' 
                 }
             ]
@@ -795,30 +971,44 @@
             scales: {
                 y: { 
                     position: 'left', 
-                    grid: { color: 'rgba(255,255,255,0.05)' }, 
-                    ticks: { color: '#94a3b8' }, 
-                    title: { display: true, text: 'Fiyat (₺)', color: '#94a3b8' } 
+                    grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, 
+                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                    title: { display: true, text: 'Fiyat (₺)', color: '#94a3b8', font: { weight: 'bold' } } 
                 },
                 y1: { 
-                    display: !isPlanF, // Plan F'de sağ ekseni gizle
+                    display: !isPlanF, 
                     position: 'right', 
                     grid: { drawOnChartArea: false },
-                    ticks: { color: '#94a3b8' }, 
-                    title: { display: true, text: secondaryLabel, color: '#94a3b8' } 
+                    ticks: { color: '#94a3b8', font: { size: 11 } }, 
+                    title: { display: true, text: secondaryLabel, color: '#94a3b8', font: { weight: 'bold' } } 
                 },
                 x: { 
                     grid: { display: false }, 
-                    ticks: { color: '#94a3b8' } 
+                    ticks: { color: '#94a3b8', maxRotation: 0, font: { size: 10 } } 
                 }
             },
             plugins: {
                 legend: { 
                     display: true,
-                    labels: { color: '#94a3b8', usePointStyle: true } 
+                    position: 'top',
+                    labels: { 
+                        color: '#94a3b8', 
+                        usePointStyle: true, 
+                        pointStyle: 'square',
+                        padding: 20,
+                        font: { size: 12 }
+                    } 
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
                     mode: 'index',
-                    intersect: false
+                    intersect: false,
+                    padding: 12,
+                    displayColors: true
                 }
             },
             interaction: {
@@ -828,92 +1018,72 @@
             }
         }
     });
-    }
-
-    //Yük Kaydırma önerisini optimizasyon ile belirleme
-    async function energy_optimization(){
-        if (currentMode !== 'B') return; 
-
-        try {
-            // YENİ ENDPOINT: planB çağrılıyor
-            const response = await fetch('/optimize');
-            const result = await response.json();
-
-            if (result.status === "success" && result.data.length > 0) {
-                const data = result.data;
-                
-                // Son veriyi al (Genelde tablodaki en güncel saat için)
-                const lastEntry = data[data.length - 1]; 
-                
-                // Üst Kart Güncelleme (Plan B - Spread Analizi)
-                const ptf = Number(lastEntry.ptf) || 0;
-                const load = Number(lastEntry.load) || 0;
-                const smf = Number(lastEntry.smf) || 0;
-                const spread = (smf - ptf).toFixed(2);
-                
-                const bPriceEl = document.getElementById('plan-b-price');
-                if (bPriceEl) {
-                    bPriceEl.innerHTML = `${spread} <small>₺</small>`;
-                    // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
-                    bPriceEl.style.color = spread >= 0 ? '#10b981' : '#f43f5e';
-                }
-
-                // Grafik: PTF vs SMF karşılaştırması
-                updateChart(
-                    data.map(item => item.hour),
-                    data.map(item => Number(item.ptf) || 0),
-                    data.map(item => Number(item.smf) || 0),
-                    'SMF (₺)' // Sağ eksen başlığı
-                );
-
-                // Tabloyu Plan B formatında (PTF/SMF/Status) render et
-                renderTableUnified(data, 'B');
-
-                // Piyasa Yönü UI Güncelleme (lastEntry içinde SMF ve PTF olduğu için çalışır)
-                updateMarketUI(lastEntry, 'B');
-                
-            }
-        } catch (error) {
-            console.error("Plan B Dashboard hatası:", error);
-        }
-    }
+}
+    
 
 
     // MAE hesaplama
     function processPriceData(actualPrices, forecastPrices) {
-        let totalError = 0;
+        let totalMAE = 0;
+        let totalMSE = 0;
+        let totalMAPE = 0;
         let validCount = 0;
         const tableRows = [];
 
-        // 24 saatlik döngü
         for (let i = 0; i < 24; i++) {
-            const actual = actualPrices[i] || 0;
-            const forecast = forecastPrices[i] || 0;
-            const hourlyMAE = Math.abs(actual - forecast);
- 
-            totalError += hourlyMAE;
-            if(actual > 0) validCount++;
+            const actual = parseFloat(actualPrices[i]) || 0;
+            const forecast = parseFloat(forecastPrices[i]) || 0;
+            
+            const error = actual - forecast;
+            const absError = Math.abs(error);
+
+            // Metrik birikimleri
+            totalMAE += absError;
+            totalMSE += Math.pow(error, 2);
+            
+            if (actual > 0) {
+                totalMAPE += (absError / actual);
+                validCount++;
+            }
 
             tableRows.push({
                 hour: `${String(i).padStart(2, '0')}:00`,
                 actual: actual.toFixed(2),
                 forecast: forecast.toFixed(2),
-                mae: hourlyMAE.toFixed(2)
+                mae: absError.toFixed(2)
             });
         }
 
-        const averageMAE = totalError / 24;
-        
-        // UI Güncelleme
-        document.getElementById('metric-mae').innerText = averageMAE.toFixed(2) + " ₺";
-        
-        const score = calculateR2Score(actualPrices, forecastPrices);
-        const element = document.getElementById('metric-r2');
-        element.innerText = score.toFixed(2);
-        element.style.color = score > 0.8 ? '#22d3ee' : (score > 0.5 ? '#fbbf24' : '#f43f5e');
+        // Nihai Metrik Hesaplamaları
+        const finalMAE = totalMAE / 24;
+        const finalRMSE = Math.sqrt(totalMSE / 24);
+        const finalMAPE = validCount > 0 ? (totalMAPE / validCount) * 100 : 0;
+        const finalR2 = calculateR2Score(actualPrices, forecastPrices);
 
-        document.getElementById('metric-r2').innerText = score.toFixed(4);
+        // --- UI GÜNCELLEME (BEYAZ TEMA UYUMLU) ---
         
+        // MAE Güncelleme
+        document.getElementById('mae-val').innerText = finalMAE.toFixed(2) + " ₺";
+
+        // MAPE Güncelleme
+        document.getElementById('mape-val').innerText = "%" + finalMAPE.toFixed(2);
+
+        // RMSE Güncelleme
+        document.getElementById('rmse-val').innerText = finalRMSE.toFixed(2);
+
+        // R2 Score ve Dinamik Renklendirme
+        const r2Element = document.getElementById('r2-val');
+        r2Element.innerText = finalR2.toFixed(4);
+        
+        // Skor başarısına göre sadece değeri renklendiriyoruz (Turkuaz, Turuncu, Kırmızı)
+        if (finalR2 > 0.8) {
+            r2Element.style.color = "#22d3ee"; // Mükemmel (Turkuaz)
+        } else if (finalR2 > 0.5) {
+            r2Element.style.color = "#fbbf24"; // Orta (Sarı)
+        } else {
+            r2Element.style.color = "#f43f5e"; // Zayıf (Kırmızı)
+        }
+
         return tableRows;
     }
 
@@ -946,6 +1116,63 @@
             return 0;
         }
     }
+
+
+    async function retrainModel() {
+        const btn = document.getElementById('retrain-btn');
+        
+        // 1. Görsel Geri Bildirim: İşlem başladı
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> OPTIMIZING...';
+
+        try {
+            // 2. Backend'e istek at (Eğitim + Simülasyon)
+            const response = await fetch('/api/v1/retrain-and-refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.status === "success") {
+                // 3. Backend'den gelen GERÇEK metrikleri paneldeki ID'lere bas
+                // Backend'den "metrics" objesi içinde rmse, mae ve r2 dönüyor olmalı
+                
+                if (result.metrics) {
+                    document.getElementById('mae-val').innerText = result.metrics.mae.toFixed(2) + " ₺";
+                    document.getElementById('mape-val').innerText = "%" + result.metrics.mape.toFixed(2);
+                    document.getElementById('rmse-val').innerText = result.metrics.rmse.toFixed(2);
+                    document.getElementById('r2-val').innerText = result.metrics.r2.toFixed(4);
+                    
+                    // 2. R² Skoruna göre renk değişimi (Opsiyonel görsel şıklık)
+                    const r2Elem = document.getElementById('r2-val');
+                    r2Elem.style.color = result.metrics.r2 > 0.9 ? '#4ade80' : (result.metrics.r2 > 0.7 ? '#fbbf24' : '#f87171');
+
+                }
+
+                // 4. Grafiği ve tabloyu yeni tahminlerle güncelle
+                // (Bu fonksiyon senin dashboard verilerini tekrar çeken ana fonksiyonun olmalı)
+                if (typeof updateDashboard === "function") {
+                    await updateDashboard(); 
+                }
+
+                console.log("Model Re-optimized. Sim ID:", result.simulation_id);
+                
+            } else {
+                alert("Optimization Error: " + result.message);
+            }
+        } catch (error) {
+            console.error("Critical Retrain Error:", error);
+            alert("Bağlantı hatası: Sunucuya ulaşılamıyor.");
+        } finally {
+            // 5. Butonu eski haline getir
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+
     
     // Başlangıç tetikleyicileri
     updateTableHeaders('B');

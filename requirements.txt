@@ -12,6 +12,7 @@ joblib
 
 # Optimizasyon Motoru
 pulp
+xgboost
 
 # Veritabanı (PostgreSQL) ve ORM
 sqlalchemy

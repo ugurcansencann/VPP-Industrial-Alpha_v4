@@ -1,23 +1,31 @@
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
-import models 
 import pandas as pd
-from models import VPPForecast
+from models import MeterReading, MarketData, VPPForecast
+from database import SessionLocal
 
 # --- METER READING FONKSİYONLARI (PLAN B / DASHBOARD) ---
-
-def get_readings(db: Session, limit: int = None, days: int = None):
-    """Genel veri çekme fonksiyonu (Dashboard ve Analiz için)"""
-    query = db.query(models.MeterReading).order_by(models.MeterReading.date.desc())
+def get_readings(db: Session, meter_id: str = None, limit: int = None, days: int = None):
+    """Genel veri çekme fonksiyonu - Sütun isimleri modele göre düzeltildi"""
+    query = db.query(MeterReading)
     
+    # Meter_id filtresi eklendi
+    if meter_id:
+        query = query.filter(MeterReading.meter_id == meter_id)
+        
     if days:
         start_date = datetime.now() - timedelta(days=days)
-        query = query.filter(models.MeterReading.date >= start_date)
+        query = query.filter(MeterReading.date >= start_date)
+    
+    # Timestamp yerine date ve hour kullanıyoruz
+    query = query.order_by(MeterReading.date.desc(), MeterReading.hour.desc())
     
     if limit:
         query = query.limit(limit)
     
-    return query.all()
+    # Tek bir nesne lazımsa .first() kullanılır, liste lazımsa .all()
+    return query.first() if limit == 1 else query.all()
+
 
 def get_vpp_forecast_by_date(db: Session, target_date: date):
     """Plan A grafiği için verileri SAAT SIRALI ve organize döner."""
@@ -48,15 +56,15 @@ def get_24h_data_by_type(db: Session, target_date: date, data_typeid: int, model
         # Eğer veri 24 saatten eksikse veya hiç yoksa log basabilirsin
         if len(results) < 24:
             print(f"UYARI: {target_date} tarihi için sadece {len(results)} saatlik PTF verisi bulundu.")
-            
+        
         return results
     except Exception as e:
         print(f"HATA: get_24h_ptf_data çalışırken hata oluştu: {e}")
         return []
-
+"""
 def insert_meter_reading(db: Session, date, hour, meter_id, value):
-    """Yeni IoT veya Piyasa verisi kaydetme fonksiyonu"""
-    db_reading = models.MeterReading(
+    "Yeni IoT veya Piyasa verisi kaydetme fonksiyonu"
+    db_reading = MeterReading(
         date=date,
         hour=hour,
         meter_id=meter_id,
@@ -68,7 +76,7 @@ def insert_meter_reading(db: Session, date, hour, meter_id, value):
     return db_reading
 
 def insert_only_vpp_forecast(db: Session, target_date: date, hour: str, data_typeid: int, value: float):
-    """Tekli tahmin verisi kaydetme veya güncelleme"""
+    "Tekli tahmin verisi kaydetme veya güncelleme"
     # Mevcut veri varsa sil (UniqueConstraint ihlalini önlemek için)
     db.query(VPPForecast).filter(
         VPPForecast.date == target_date,
@@ -91,11 +99,7 @@ def insert_only_vpp_forecast(db: Session, target_date: date, hour: str, data_typ
 # --- ESKİ FONKSİYONLARIN YENİ YAPIYA ADAPTASYONU ---
 
 def insert_combined_vpp_forecasts(db: Session, ptf_list: list, load_list: list, target_date: date):
-    """
-    Hem PTF hem LOAD verilerini yeni tablo yapısına göre kaydeder.
-    ptf_list: [{'hour': '00:00', 'price': 2500}, ...]
-    load_list: [10.5, 11.2, ...] (24 adet float)
-    """
+    "    Hem PTF hem LOAD verilerini yeni tablo yapısına göre kaydeder.    ptf_list: [{'hour': '00:00', 'price': 2500}, ...]    load_list: [10.5, 11.2, ...] (24 adet float)"
     try:
         # Önce o tarihe ait eski PTF(1) ve LOAD(2) verilerini temizle
         db.query(VPPForecast).filter(
@@ -161,13 +165,8 @@ def bulk_insert_vpp_forecasts(db: Session, df: pd.DataFrame, data_typeid: int):
         print(f"HATA: {e}")
         raise e
 
-from models import MarketData
-
 def bulk_insert_market_data(db: Session, df: pd.DataFrame, data_typeid: int = None):
-    """
-    Pandas DataFrame verisini market_data tablosuna toplu olarak ekler.
-    data_name: 'PTF', 'SMF', 'YAL', 'YAT' gibi...
-    """
+    "Pandas DataFrame verisini market_data tablosuna toplu olarak ekler.    data_name: 'PTF', 'SMF', 'YAL', 'YAT' gibi...    "
     try:
         # Önce mükerrer kayıt hatası almamak için o tarihteki aynı isimli verileri temizleyebilirsin
         target_dates = df['date'].unique()
@@ -193,13 +192,12 @@ def bulk_insert_market_data(db: Session, df: pd.DataFrame, data_typeid: int = No
         print(f"Market Data Insert Hatası: {e}")
         raise e
 
-
-
-
 def delete_forecasts_by_date(db: Session, target_date: date, data_typeid: int = None):
-    """Belirli bir tarihteki verileri temizler"""
+    "Belirli bir tarihteki verileri temizler"
     query = db.query(VPPForecast).filter(VPPForecast.date == target_date)
     if data_typeid:
         query = query.filter(VPPForecast.data_typeid == data_typeid)
     query.delete()
     db.commit()
+
+"""
