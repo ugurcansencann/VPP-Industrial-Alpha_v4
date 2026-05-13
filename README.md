@@ -12,7 +12,8 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 - **ML & Optimization:** Scikit-learn, XGBoost, PuLP - Tahminleme ve maliyet minimizasyonu.
 
 *******************************************************************
-🛠 Öne Çıkan Özellikler
+### 🛠 Öne Çıkan Özellikler
+
 **Çok Katmanlı Operasyon Modülleri:** Stratejik Plan A, anlık tepki odaklı Plan B ve fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini) modülleri entegre edildi.
 
 **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
