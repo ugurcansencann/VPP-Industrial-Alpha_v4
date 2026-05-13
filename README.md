@@ -23,7 +23,7 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 **Akıllı Yük Kaydırma:** Enerji fiyatlarının tepe yaptığı saatlerdeki yükü, düşük fiyatlı veya yenilenebilir üretimin yoğun olduğu saatlere kaydıran optimizasyon motoru eklendi.
 
 ```mermaid
-graph TD
+graph LR
     subgraph "1. Veri Kaynakları & Orkestrasyon"
         EP["EPİAŞ Şeffaflık (PTF Verisi)"]
         IOT["IoT Sayaç (MeterReading)"]
@@ -51,7 +51,7 @@ graph TD
         CHART["Zaman Serisi Analizi (Chart.js)"]
     end
 
-    %% Veri Akışları
+    %% Yatay Veri Akışları (Soldan Sağa)
     EP & IOT --> AF
     AF --> DB_SQL
     DB_SQL --> ML_TRAIN
