@@ -17,37 +17,50 @@ Virtual Power Plant (Sanal Güç Santrali) Optimizasyon ve Veri Yönetim Sistemi
 ```mermaid
 graph TD
     subgraph "1. Veri Kaynakları (Data Sources)"
-        EP["EPİAŞ Şeffaflık (PTF/SMF)"]
-        IOT["IoT Sayaç / Saha Verisi"]
-        DB_HIST["Geçmiş Tüketim DB"]
+        EP["EPİAŞ Şeffaflık (PTF Verisi)"]
+        IOT["IoT Sayaç (MeterReading Tablosu)"]
+        DB_HIST["Geçmiş Tüketim & Hava Durumu Verisi"]
     end
 
-    subgraph "2. Analitik Katman (Intelligence Layer)"
-        ML["ML Tahmin Modeli (Python/XGBoost)"]
-        OPT["Optimizasyon Motoru (Maliyet Min.)"]
-        STRAT["Strateji Karar (Plan A/B Logic)"]
+    subgraph "2. Analitik Katman (ML & Optimization Engine)"
+        ML_TRAIN["Model Eğitimi (train_and_log_model)"]
+        ML_FORECAST["Rolling Forecast (Python/XGBoost)"]
+        OPT_ENGINE["Optimizasyon Motoru (PuLP / Maliyet Min.)"]
+        SYNCHRONIZER["Sync Logic (Dashboard & Simülasyon Eşitleyici)"]
     end
 
-    subgraph "3. Servis Katmanı (Backend Layer)"
-        API["FastAPI / Python"]
+    subgraph "3. Servis Katmanı (Backend - FastAPI)"
+        API["FastAPI Endpointleri (PlanA & Retrain)"]
         DB_SQL["PostgreSQL (SQLAlchemy)"]
-        DOCKER["Docker Container"]
+        VPP_CORE["VPP Logic (summarize_vpp_results)"]
     end
 
-    subgraph "4. Sunum Katmanı (Presentation Layer)"
-        UI["Dashboard (HTML/JS/Chart.js)"]
-        CTRL["Mod Kontrol Paneli"]
-        TBL["Operasyonel Takvim"]
+    subgraph "4. Sunum Katmanı (Frontend - Single Source of Truth)"
+        UI["Dashboard (Panel A / JS)"]
+        METRICS["Model Başarı Metrikleri (MAE/R2/MAPE)"]
+        CHART["Zaman Serisi Grafiği (Chart.js)"]
+        UNIFIED_TBL["Senkronize Operasyonel Tablo"]
     end
 
-    %% Veri Akışları
-    EP --> API
-    IOT --> API
-    DB_HIST --> ML
-    ML --> OPT
-    OPT --> STRAT
-    STRAT --> API
+    %% Veri ve İşlem Akışı
+    EP & IOT --> DB_SQL
+    DB_SQL --> ML_TRAIN
+    ML_TRAIN --> ML_FORECAST
+    
+    %% Yeni Senkronize Akış
+    ML_FORECAST --> OPT_ENGINE
+    OPT_ENGINE --> SYNCHRONIZER
+    SYNCHRONIZER --> VPP_CORE
+    
+    %% API & UI İletişimi
+    VPP_CORE <--> API
     API <--> DB_SQL
-    API --> UI
-    UI --> CTRL
-    CTRL --> TBL
+    
+    %% Frontend Tekil Besleme
+    API -- "JSON (Data + Metadata + Metrics)" --> UI
+    UI --> METRICS
+    UI --> CHART
+    UI --> UNIFIED_TBL
+
+    style SYNCHRONIZER fill:#f96,stroke:#333,stroke-width:2px
+    style VPP_CORE fill:#bbf,stroke:#333,stroke-width:2px
