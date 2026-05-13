@@ -20,7 +20,9 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 
 - **Maliyet Optimizasyonu (Plan A):** Yük kaydırma potansiyelini (kWh ve TL bazında) hesaplar. ML tahminlerini kullanarak operasyonel verimliliği maksimize eden "Stratejik Analiz" modülünü besler.
 
-- **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.Kontrol Paneli & Model Metrikleri: Sistemin "sağlık raporunu" sunar. Airflow entegrasyonu ile modelin başarı skorlarını ($R^2$, MAE, MAPE) canlı olarak izler ve tek tuşla modeli yeniden eğitme (Retrain) imkanı sunar.
+- **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.
+
+- **Kontrol Paneli & Model Metrikleri:** Sistemin "sağlık raporunu" sunar. Airflow entegrasyonu ile modelin başarı skorlarını ($R^2$, MAE, MAPE) canlı olarak izler ve tek tuşla modeli yeniden eğitme (Retrain) imkanı sunar.
 
 - **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
 
