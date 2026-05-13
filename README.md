@@ -16,7 +16,13 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 
 **Çok Katmanlı Operasyon Modülleri:** Stratejik Plan A, anlık tepki odaklı Plan B ve fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini) modülleri entegre edildi.
 
-**Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
+- **Fiyat Tahmin (Plan F):** EPİAŞ PTF verilerini analiz ederek tahmin edilen ve gerçekleşen fiyat ortalamalarını sunar. Enerji satın alma stratejileri için finansal öngörü sağlar.
+
+- **Maliyet Optimizasyonu (Plan A):** Yük kaydırma potansiyelini (kWh ve TL bazında) hesaplar. ML tahminlerini kullanarak operasyonel verimliliği maksimize eden "Stratejik Analiz" modülünü besler.
+
+- **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.Kontrol Paneli & Model Metrikleri: Sistemin "sağlık raporunu" sunar. Airflow entegrasyonu ile modelin başarı skorlarını ($R^2$, MAE, MAPE) canlı olarak izler ve tek tuşla modeli yeniden eğitme (Retrain) imkanı sunar.
+
+- **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
 
 **Single Source of Truth (SSoT):** FastAPI backend ve Chart.js frontend arasında kurulan senkronize veri köprüsü ile dashboard ve simülasyon sonuçları arasında tam tutarlılık sağlandı.
 
