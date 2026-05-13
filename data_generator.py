@@ -1,66 +1,96 @@
 import pandas as pd
 import numpy as np
+import sys
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text
-from database import engine  # Kendi engine bağlantını import et
+from sqlalchemy import text
+from database_setup import engine 
 
-def generate_and_insert_bulk_data(days=1):
-    # Başlangıç tarihi: Bugünün başı
-    start_date = datetime(2026, 5, 13, 0, 0) 
-    meter_ids = [f"MTR_{i:05d}" for i in range(1, 1001)] # MTR_00001 - MTR_01000
-    
+def generate_meter_data(meter_ids, target_time):
+    """Belirli bir zaman dilimi için tüm sayaçlara veri üretir."""
+    hour = target_time.hour
+    current_date_str = target_time.strftime("%Y-%m-%d")
+    hour_str = f"{hour:02d}:00"
+
+    records = []
+    for meter_id in meter_ids:
+        # Tüketim mantığı (Mevsimsel sinüs dalgası + gürültü)
+        base_consumption = 30 + 15 * np.sin(2 * np.pi * (hour - 6) / 24)
+        consumption = round(max(0.1, base_consumption + np.random.normal(0, 3)), 3)
+        
+        records.append({
+            "date": current_date_str,
+            "hour": hour_str,
+            "data_typeid": 2,
+            "meter_id": meter_id,
+            "value": consumption            
+        })
+    return records
+
+def run_generator(mode="daily", h_count=1):
+    meter_ids = [f"MTR_{i:05d}" for i in range(1, 1001)]
     all_records = []
     
-    print(f"{len(meter_ids)} sayaç için {days} günlük veri üretiliyor...")
+    # Şu anki saati al ve dakikaları sıfırla (örn 15:45 -> 15:00)
+    now = datetime.now().replace(minute=0, second=0, microsecond=0)
 
-    for meter_id in meter_ids:
-        for i in range(24 * days):
-            current_time = start_date + timedelta(hours=i)
-            hour = current_time.hour
-            current_date = current_time.date()
-            hour_str = f"{hour:02d}:00"
-            
-            # Tüketim mantığı (Fiziksel karakteristik)
-            base_consumption = 30 + 15 * np.sin(2 * np.pi * (hour - 6) / 24)
-            consumption = round(max(0.1, base_consumption + np.random.normal(0, 3)), 3)
-            
-            all_records.append({
-                "date": current_date,
-                "hour": hour_str,
-                "meter_id": meter_id,
-                "value": consumption,
-                "data_typeid": 2  # Gerçek okuma tipi
-            })
+    if mode == "hourly":
+        # Belirtilen saat sayısı kadar geriye git ve her saat için veri üret
+        print(f"Saatlik mod aktif: Son {h_count} saat için veriler üretiliyor...")
+        for i in range(h_count, 0, -1):
+            # i=1 ise son 1 saati, i=5 ise 5 saat öncesinden başlayarak üretir
+            target_time = now - timedelta(hours=i)
+            print(f"-> {target_time.strftime('%Y-%m-%d %H:00')} işleniyor...")
+            all_records.extend(generate_meter_data(meter_ids, target_time))
+        
+    else:
+        # GÜNLÜK MOD: Belirli bir tarihten başla (Varsayılan 24 saat)
+        start_date = datetime(2026, 5, 13, 0, 0)
+        print(f"Günlük mod aktif: {start_date.date()} için 24 saatlik veri üretiliyor...")
+        for h in range(24):
+            target_time = start_date + timedelta(hours=h)
+            all_records.extend(generate_meter_data(meter_ids, target_time))
 
-    # Veritabanına Toplu Yazma (Bulk Insert)
-    df = pd.DataFrame(all_records)
-    
-    print(f"Toplam {len(df)} satır veritabanına yazılıyor...")
-    
-    try:
-        # Hızlı insert için "multi" methodu kullanılır
-        df.to_sql('meter_readings', con=engine, if_exists='append', index=False, method='multi', chunksize=5000)
-        print("İşlem başarıyla tamamlandı!")
-    except Exception as e:
-        print(f"Hata oluştu: {e}")
+    # Veritabanına Yazma
+    if all_records:
+        df = pd.DataFrame(all_records)
+        try:
+            df.to_sql('meter_readings', con=engine, if_exists='append', index=False, method='multi', chunksize=5000)
+            print(f"\nBaşarılı! Toplam {len(df)} satır veritabanına eklendi.")
+        except Exception as e:
+            print(f"Veritabanı hatası: {e}")
+
+if __name__ == "__main__":
+    # Kullanım: python data_generator.py hourly 5
+    if len(sys.argv) > 1 and sys.argv[1] == "hourly":
+        # Eğer sayı verilmezse varsayılan olarak 1 saat işlem yapar
+        count = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+        run_generator(mode="hourly", h_count=count)
+    else:
+        # Kullanım: python data_generator.py
+        run_generator(mode="daily")
 
 def delete_meter_data_by_date(target_date_str):
-    """
-    Belirli bir tarihteki tüm sayaç verilerini siler.
-    Örn: delete_meter_data_by_date("2026-05-12")
-    """
     query = text("DELETE FROM meter_readings WHERE date = :target_date")
-    
     try:
         with engine.connect() as conn:
             result = conn.execute(query, {"target_date": target_date_str})
             conn.commit()
-            print(f"{target_date_str} tarihli {result.rowcount} adet kayıt silindi.")
+            print(f"{target_date_str} tarihli {result.rowcount} kayıt silindi.")
     except Exception as e:
-        print(f"Silme işlemi sırasında hata oluştu: {e}")
+        print(f"Silme hatası: {e}")
 
-if __name__ == "__main__":
-    # Önce temizle (varsa eski verileri siler, böylece mükerrer kayıt olmaz)
-    # delete_meter_data_by_date("2026-05-12")
-    # Sonra yeni verileri bas
-    generate_and_insert_bulk_data(days=1)
+
+
+"""
+1. Manuel / Toplu Veri Basma (Senin her zamanki yöntemin):
+Bu komut 13 Mayıs için tüm günün (24.000 satır) verisini basar.
+
+Bash
+python data_generator.py
+
+2. Saatlik IoT Simülasyonu (Yeni Özellik):
+Bu komut çalıştığı andaki sistem saatini alır (örneğin saat 15:20 ise 15:00 kabul eder) ve 1000 sayaç için o saate ait veriyi (1000 satır) anında basar.
+
+Bash
+python data_generator.py hourly
+"""

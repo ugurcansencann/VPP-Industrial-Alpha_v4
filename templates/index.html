@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>VPP Industrial Alpha | Control Center</title>
+    <title>VPP Industrial Alpha</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -388,7 +388,7 @@
                 </div>
             
                 <!-- Kontrol Paneli + Sağ Panel (TAŞINAN PANEL BURADA) -->
-                <div class="col-md-3">
+                <div class="col-md-3" id="control-panel-container" style="display: none;">
                     <div class="vpp-card d-flex flex-column gap-3">
                         <div class="stat-label">Kontrol Paneli</div>
                         <button class="btn btn-vpp-outline w-100 py-3" onclick="window.location.href='http://localhost:8080'">
@@ -475,8 +475,7 @@
     </div>
 
     <script>
-
-
+    
     let myChart;
     let currentMode = 'B'; 
     let refreshInterval; // Otomatik yenilemeyi kontrol etmek için
@@ -503,6 +502,15 @@
 
     if (mode === 'A') {
     try {
+        // --- BÖLÜM 1: KONTROL PANELİ VE MODEL METRİKLERİ ---
+        // Kontrol panelini görünür yap
+        const controlPanel = document.getElementById('control-panel-container');
+        if (controlPanel) controlPanel.style.display = 'block';
+
+        // --- BÖLÜM 1: Metrikleri Getir (Dışarıdaki fonksiyonu çağırıyoruz) ---
+        await loadLastSimulationMetrics();
+
+        // --- BÖLÜM 2: PİYASA VERİLERİ VE GRAFİKLER ---
         // 1. Tek endpoint üzerinden tüm veriyi (tahmin + optimizasyon + ptf) al
         const response = await fetch('/api/v1/market-data/planA');
         const result = await response.json();
@@ -514,24 +522,15 @@
             // 2. UI Başlık/Etiket Güncelleme
             updatePlanALabel();
 
-            // 3. SARI SAYI: Toplam Tasarruf (Metadata'dan gelir)
-            // 1. kWh Satırı (Kısıntı/Kaydırma)
-            document.getElementById('shift-total-kwh').innerText = metadata.total_reduction_kwh.toFixed(2);
-            // Ortalama için toplam kısıntıyı 24 saate bölüyoruz
-            document.getElementById('shift-avg-kwh').innerText = metadata.avg_reduction_kwh.toFixed(2);
-
-            // 2. TL Satırı (Tasarruf)
-            document.getElementById('shift-total-tl').innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
-            document.getElementById('shift-avg-tl').innerText = metadata.avg_savings_tl.toFixed(2);
-
-            // Eski ID'leri de dolduralım ki diğer fonksiyonlar hata vermesin
-            document.getElementById('plan-a-price').innerText = metadata.total_savings_tl;
+            // METRİKLERİ YENİ FONKSİYONLA GÜNCELLE
+            updateSummaryMetrics(metadata);
             // 4. GRAFİK GÜNCELLEME
             updateChart(
                 combinedData.map(d => d.hour),
                 combinedData.map(d => d.ptf), // Tahmin edilen yük
                 combinedData.map(d => d.load),  // Piyasa fiyatı
-                'ML Sayaç Tahmini (kWh)'
+                'ML Sayaç Tahmini (kWh)',
+                combinedData
             );
 
             // 5. TABLO GÜNCELLEME
@@ -549,6 +548,16 @@
         }
     } else if (mode === 'F'){
         try {
+            // Kontrol panelini görünür yap
+            const controlPanel = document.getElementById('control-panel-container');
+            if (controlPanel) controlPanel.style.display = 'block';
+
+            // --- BÖLÜM 0: Tahminleri Backend'de Güncelle ---
+            // Plan F'ye basıldığında yarının tahminleri yoksa üretilmesi için backend'i tetikliyoruz.
+            await fetch('/api/v1/forecast/ptf-forecast', { method: 'POST' });
+            // --- BÖLÜM 1: Metrikleri Getir (Dışarıdaki fonksiyonu çağırıyoruz) ---
+            await loadLastSimulationMetrics();
+
             const response = await fetch('/api/v1/market-data/planF');
             const result = await response.json();
             // switchMode('A') çağrıldığında veya sayfa yüklendiğinde çalıştırın
@@ -594,7 +603,49 @@
         updateDashboard(); 
     }
 }
-    
+    // Plan A panel bilgisi
+    function updatePlanALabel() {
+        const labelEl = document.getElementById('plan-a-label');
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        if (currentHour >= 14) {
+            // Saat 14:00 ve sonrası ise yarının verisi beklenir/gösterilir
+            labelEl.innerHTML = "Yarının PTF Ortalaması:";
+        } else {
+            // Saat 14:00 öncesi ise bugünün verisi gösterilir
+            labelEl.innerHTML = "Günün PTF Ortalaması:";
+        }
+    }
+    /**
+     * Özet metrik kutularını (kWh ve TL tasarruf) güncelleyen merkezi fonksiyon
+     * @param {Object} metadata - Backend'den gelen özet veriler
+     */
+    function updateSummaryMetrics(metadata) {
+        if (!metadata) return;
+
+        try {
+            // 1. kWh Satırı (Toplam ve Ortalama Kısıntı)
+            const totalKwhEl = document.getElementById('shift-total-kwh');
+            const avgKwhEl = document.getElementById('shift-avg-kwh');
+            
+            if (totalKwhEl) totalKwhEl.innerText = metadata.total_reduction_kwh.toFixed(2);
+            if (avgKwhEl) avgKwhEl.innerText = metadata.avg_reduction_kwh.toFixed(2);
+
+            // 2. TL Satırı (Toplam ve Ortalama Tasarruf)
+            const totalTlEl = document.getElementById('shift-total-tl');
+            const avgTlEl = document.getElementById('shift-avg-tl');
+            const planAPriceEl = document.getElementById('plan-a-price'); // Eski ID desteği
+            
+            if (totalTlEl) totalTlEl.innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
+            if (avgTlEl) avgTlEl.innerText = metadata.avg_savings_tl.toFixed(2);
+            if (planAPriceEl) planAPriceEl.innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
+
+            console.log("Özet metrikler güncellendi:", metadata);
+        } catch (error) {
+            console.error("Metrikler güncellenirken hata oluştu:", error);
+        }
+    }
     // Plan B'ye göre, dashboard içeriği oluşturma
     async function updateDashboard() {
         if (currentMode !== 'B') return; 
@@ -675,13 +726,22 @@
                 const reduction = item.reduction || 0;
                 const actionLabel = item.action || 'NORMAL';
                 
+                // --- EKLEME: Dinamik Renk ve Veri Seçimi ---
+                // Eğer is_forecast true ise #fbbf24 (sarı), değilse mevcut yük rengini kullanır.
+                const isForecast = item.is_forecast === true;
+                const loadColor = isForecast ? '#fbbf24 !important' : '#e2e8f0'; // Gerçek veri için açık gri/beyaz tonu
+                const currentLoad = item.display_load || item.load || 0;
+                // ------------------------------------------
                 // Aksiyon durumuna göre renk/badge belirle
                 const isActionRequired = actionLabel === 'YÜK KAYDIR';
 
                 return `
                     <tr>
                         <td style="color: #94a3b8;">${item.hour}</td>
-                        <td style="font-weight: bold; color: #fbbf24;">${item.load.toFixed(2)}</td>
+                        <!-- ML YÜK sütununda dinamik rengi ve display_load'u uyguluyoruz -->
+                        <td style="font-weight: bold; color: ${loadColor};">
+                            ${currentLoad.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}
+                        </td>
                         <td style="color: #22d3ee;">${item.ptf.toFixed(2)}</td>
                         <td style="color: #f87171;">${reduction.toFixed(2)}</td>
                         <td style="color: #4ade80; font-weight: bold;">+${saving.toFixed(2)} ₺</td>
@@ -738,20 +798,7 @@
         }
     }
    
-    // Plan F panel bilgisi
-    function updatePlanALabel() {
-    const labelEl = document.getElementById('plan-a-label');
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    if (currentHour >= 14) {
-        // Saat 14:00 ve sonrası ise yarının verisi beklenir/gösterilir
-        labelEl.innerHTML = "Yarının PTF Ortalaması:";
-    } else {
-        // Saat 14:00 öncesi ise bugünün verisi gösterilir
-        labelEl.innerHTML = "Günün PTF Ortalaması:";
-    }
-}
+    
     
     // 4. Panel --> Bilgi modulü
     function updateMarketUI(last, mode) {
@@ -900,7 +947,7 @@
     }
     
     // Plana göre chart
-    function updateChart(labels, mainData, secondaryData, secondaryLabel) {
+    function updateChart(labels, mainData, secondaryData, secondaryLabel, dataList = []) {
     const ctx = document.getElementById('marketChart').getContext('2d');
     const titleElement = document.getElementById('chart-title');
     
@@ -955,7 +1002,22 @@
                     label: secondaryLabel, 
                     data: secondaryData, 
                     borderColor: currentCfg.secondaryColor, 
-                    borderDash: currentCfg.isSecondaryDashed ? [5, 5] : [], 
+                    // --- EKLEME: Dinamik Segment Renklendirme ---
+                    segment: {
+                        borderColor: ctx => {
+                            if (currentMode === 'A' && dataList.length > 0) {
+                                const index = ctx.p0DataIndex;
+                                const isForecast = dataList[index] && dataList[index].is_forecast;
+                                return isForecast ? '#fbbf24' : currentCfg.secondaryColor;
+                            }
+                            return currentCfg.secondaryColor;
+                        },
+                        borderDash: ctx => {
+                            const index = ctx.p0DataIndex;
+                            return (currentMode === 'A' && dataList[index] && dataList[index].is_forecast) ? [5, 5] : [];
+                        }
+                    },
+                    // ------------------------------------------
                     borderWidth: 2,
                     backgroundColor: 'transparent',
                     fill: false, 
@@ -1073,7 +1135,7 @@
 
         // R2 Score ve Dinamik Renklendirme
         const r2Element = document.getElementById('r2-val');
-        r2Element.innerText = finalR2.toFixed(4);
+        r2Element.innerText = finalR2.toFixed(5);
         
         // Skor başarısına göre sadece değeri renklendiriyoruz (Turkuaz, Turuncu, Kırmızı)
         if (finalR2 > 0.8) {
@@ -1118,6 +1180,8 @@
     }
 
 
+
+
     async function retrainModel() {
         const btn = document.getElementById('retrain-btn');
         
@@ -1127,38 +1191,54 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> OPTIMIZING...';
 
         try {
-            // 2. Backend'e istek at (Eğitim + Simülasyon)
+            // 2. Backend'e istek at (Eğitim + Simülasyon + Dashboard Verisi)
             const response = await fetch('/api/v1/retrain-and-refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
 
             const result = await response.json();
+            
+            if (result.status === "success" && result.metrics) {
+                // --- A. MODEL BAŞARI METRİKLERİ GÜNCELLEME ---
+                const newM = result.metrics;
+                const oldM = lastSimulationMetrics;
 
-            if (result.status === "success") {
-                // 3. Backend'den gelen GERÇEK metrikleri paneldeki ID'lere bas
-                // Backend'den "metrics" objesi içinde rmse, mae ve r2 dönüyor olmalı
-                
-                if (result.metrics) {
-                    document.getElementById('mae-val').innerText = result.metrics.mae.toFixed(2) + " ₺";
-                    document.getElementById('mape-val').innerText = "%" + result.metrics.mape.toFixed(2);
-                    document.getElementById('rmse-val').innerText = result.metrics.rmse.toFixed(2);
-                    document.getElementById('r2-val').innerText = result.metrics.r2.toFixed(4);
-                    
-                    // 2. R² Skoruna göre renk değişimi (Opsiyonel görsel şıklık)
-                    const r2Elem = document.getElementById('r2-val');
-                    r2Elem.style.color = result.metrics.r2 > 0.9 ? '#4ade80' : (result.metrics.r2 > 0.7 ? '#fbbf24' : '#f87171');
+                updateMetricUI('mae-val', newM.mae, oldM ? oldM.mae : null, " ₺", false);
+                updateMetricUI('mape-val', newM.mape, oldM ? oldM.mape : null, "%", false);
+                updateMetricUI('rmse-val', newM.rmse, oldM ? oldM.rmse : null, "", false);
+                updateMetricUI('r2-val', newM.r2_score, oldM ? oldM.r2_score : null, "", true);
 
+                // Yeni metrikleri referans olarak kaydet
+                lastSimulationMetrics = { ...newM };
+
+                // --- B. PANEL A (DASHBOARD) SENKRONİZASYONU ---
+                // KRİTİK: İkinci bir fetch (planA) yapmıyoruz! 
+                // Direkt backend'in bu işlem sonunda ürettiği taze veriyi basıyoruz.
+
+                if (result.metadata && result.data) {
+                    // 1. Üstteki 4 ana kutuyu (Savings, Reduction vb.) güncelle
+                    updateSummaryMetrics(result.metadata);
+
+                    // 2. Tabloyu yeni gelen (display_load içeren) verilerle tazele
+                    renderTableUnified(result.data, 'A');
+
+                    // 3. Grafiği yeni tahminler ve PTF ile güncelle
+                    updateChart(
+                        result.data.map(d => d.hour),
+                        result.data.map(d => d.ptf),
+                        result.data.map(d => d.display_load), // Backend'den gelen nihai yük
+                        'ML Sayaç Tahmini (kWh)',
+                        result.data
+                    );
+
+                    // 4. Sağ taraftaki analiz panelini (Piyasa Durumu) güncelle
+                    updateMarketUI([...result.data].sort((a, b) => a.ptf - b.ptf), 'A');
                 }
 
-                // 4. Grafiği ve tabloyu yeni tahminlerle güncelle
-                // (Bu fonksiyon senin dashboard verilerini tekrar çeken ana fonksiyonun olmalı)
-                if (typeof updateDashboard === "function") {
-                    await updateDashboard(); 
-                }
+                console.log("Model Re-optimized and Panel A Synchronized. Simulation ID:", result.simulation_id);
+                // Opsiyonel: alert("Model eğitildi ve Panel A verileri senkronize edildi!");
 
-                console.log("Model Re-optimized. Sim ID:", result.simulation_id);
-                
             } else {
                 alert("Optimization Error: " + result.message);
             }
@@ -1171,8 +1251,73 @@
             btn.innerHTML = originalText;
         }
     }
+    let lastSimulationMetrics = null; // En son ekrandaki metrikleri burada tutacağız
+    // Global değişken olarak mevcut metrikleri tutalım
+    let currentMetrics = { mae: 0, mape: 0, rmse: 0, r2_score: 0 };
 
+    // Sayfadaki mevcut metrikleri (referans için) burada tutuyoruz
+    async function loadLastSimulationMetrics() {
+        try {
+            const response = await fetch('/api/v1/last-simulation-results');
+            const data = await response.json();
+            
+            if (data.status === "success" && data.metrics) {
+                lastSimulationMetrics = data.metrics; 
+                
+                // İlk yüklemede oldValue=null gönderiyoruz (kıyaslama yok, sadece yazım)
+                updateMetricUI('mae-val', data.metrics.mae, null, " ₺", false);
+                updateMetricUI('mape-val', data.metrics.mape, null, "%", false);
+                updateMetricUI('rmse-val', data.metrics.rmse, null, "", false);
+                updateMetricUI('r2-val', data.metrics.r2_score, null, "", true); // R2 için true
+            }
+        } catch (error) {
+            console.error("Metrikler yüklenirken hata:", error);
+        }
+    }
+    /**
+     * Metrikleri ekrana yazar ve önceki değerle kıyaslayıp renklendirir.
+     * @param {string} id - HTML element ID'si
+     * @param {number} newValue - Yeni gelen metrik
+     * @param {number|null} oldValue - Mevcut/Eski metrik
+     * @param {string} unit - Birim (₺, %, vb.)
+     * @param {boolean} isHigherBetter - R2 gibi büyük değerin iyi olduğu durumlar
+     */
+    function updateMetricUI(id, newValue, oldValue, unit = "", isHigherBetter = false) {
+        const elem = document.getElementById(id);
+        if (!elem) return;
 
+        // HATA ÇÖZÜMÜ: newValue undefined veya null ise işlemi durdur veya varsayılan değer ata
+        if (newValue === undefined || newValue === null || isNaN(newValue)) {
+            elem.innerText = "N/A";
+            elem.style.color = '#ffffff';
+            return;
+        }
+
+        // Hem 'r2_score' hem de senin kullandığın 'r2-val' ID'sini kontrol edelim
+        const isR2 = id.includes('r2_score') || id.includes('r2-val');
+
+        const formattedValue = (unit === "%" ? "%" : "") + 
+                            newValue.toFixed(isR2 ? 5 : 2) + 
+                            (unit === "₺" ? " ₺" : "");
+        
+        elem.innerText = formattedValue;
+
+        // Renklendirme mantığı
+        // updateMetricUI içindeki renklendirme kısmını bu şekilde daha sağlam (robust) yapalım:
+        if (oldValue !== null && oldValue !== undefined && !isNaN(oldValue)) {
+            const diff = parseFloat(newValue) - parseFloat(oldValue);
+            
+            // Hassasiyet farkı (Eğer fark çok çok küçükse renk değişmesin)
+            if (Math.abs(diff) < 0.0001) {
+                elem.style.color = '#ffffff';
+            } else {
+                const isImproved = isHigherBetter ? diff > 0 : diff < 0;
+                elem.style.color = isImproved ? '#4ade80' : '#f87171';
+            }
+        } else {
+            elem.style.color = '#ffffff'; // Kıyaslanacak veri yoksa beyaz kalır
+        }
+    }
     
     // Başlangıç tetikleyicileri
     updateTableHeaders('B');

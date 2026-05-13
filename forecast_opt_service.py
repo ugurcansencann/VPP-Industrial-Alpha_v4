@@ -2,9 +2,10 @@ import joblib
 import pandas as pd
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from models import VPPMeterForecast, MeterReading
+from models import VPPMeterForecast, MeterReading, MarketData, VPPForecast # Modellerinin isimlerine göre güncelle
 from database_setup import engine
 import numpy as np
+from sqlalchemy import delete
 
 def generate_and_save_forecasts(db: Session, meter_id: str = "MTR_00001"):
     # 1. Modeli Yükle

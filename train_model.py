@@ -63,10 +63,13 @@ def run_ml_pipeline(mode="baseline", limit=168):
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     
-    # Başarı metriklerini hesapla
+    # --- DÜZELTME 2: Metrikleri sadece test seti (X_test) üzerinden hesapla ---
+    # Tüm veri üzerinden hesaplamak (overfitting riskini gizler) simülasyonu yanıltır
     preds = model.predict(X_test)
-    mae = mean_absolute_error(y_test, preds)
-    r2 = r2_score(y_test, preds)
+    mae_test = mean_absolute_error(y_test, preds)
+    rmse_test = np.sqrt(mean_squared_error(y_test, preds))
+    r2_test = r2_score(y_test, preds)
+    mape_test = np.mean(np.abs((y_test - preds) / y_test)) * 100
 
     # Üretim için tüm veriyle son bir kez eğit
     model.fit(X, y)
@@ -75,12 +78,12 @@ def run_ml_pipeline(mode="baseline", limit=168):
     joblib.dump(model, "consumption_model.pkl")
     
     metrics = {
-        "rmse": float(np.sqrt(mean_squared_error(y, preds))),
-        "mae": float(mean_absolute_error(y, preds)),
-        "r2": float(r2_score(y, preds)),
-        "mape": float(np.mean(np.abs((y - preds) / y)) * 100), # Bunu da ekleyebilirsin
+        "rmse": float(rmse_test),
+        "mae": float(mae_test),
+        "r2": float(r2_test),
+        "mape": float(mape_test),
         "mode": mode,
-        "sample_size": len(df),
+        "sample_size": len(df), # Artık 3190 göreceksin
         "last_train_date": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
     }
     
@@ -98,14 +101,12 @@ def run_ml_pipeline(mode="baseline", limit=168):
 
 if __name__ == "__main__":
     # Docker içinde 'python train_model.py' diyerek tetiklenebilir
+    #print(run_ml_pipeline(mode="baseline"))
     print(run_ml_pipeline(mode="baseline"))
     
-import pandas as pd
-import joblib
 import numpy as np
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import os
 
 def train_and_log_model(readings, model_dir="saved_models"):
     if not os.path.exists(model_dir):
@@ -149,7 +150,7 @@ def train_and_log_model(readings, model_dir="saved_models"):
     metrics = {
         "rmse": float(np.sqrt(mean_squared_error(y, preds))),
         "mae": float(mean_absolute_error(y, preds)),
-        "r2": float(r2_score(y, preds)),
+        "r2_score": float(r2_score(y, preds)),
         "mape": float(mape)
     }
 
@@ -159,5 +160,79 @@ def train_and_log_model(readings, model_dir="saved_models"):
     
     joblib.dump(model, model_path)
     joblib.dump(model, "consumption_model.pkl")
+
+    return model_path, params, metrics, list(X.columns), len(df)
+
+
+import os
+import joblib
+import pandas as pd
+import numpy as np
+from xgboost import XGBRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+def train_price_model(ptf_values, model_dir="saved_models"):
+    """
+    MarketData (data_typeid=1) listesini alır, lag özelliklerini hazırlar,
+    XGBoost ile eğitir ve metrikleri döner.
+    """
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+
+    # 1. Veri Hazırlama (ptf_values; market_data listesinden DataFrame oluşturma)
+    df = pd.DataFrame([
+        {"hour": int(r.hour.split(':')[0]), "val": r.value, "date": r.date} 
+        for r in ptf_values
+    ])
+    df = df.sort_values(['date', 'hour'])
+    
+    # Feature Engineering: Lag 1, Lag 24 ve Lag 168 (Haftalık mevsimsellik)
+    df['lag_1'] = df['val'].shift(1)
+    df['lag_24'] = df['val'].shift(24)
+    df['lag_168'] = df['val'].shift(168) # 1 hafta önceki aynı saat
+    df['day_of_week'] = pd.to_datetime(df['date']).dt.dayofweek
+    
+    df = df.dropna()
+
+    if df.empty:
+        raise Exception("Fiyat tahmini eğitimi için yeterli geçmiş veri (en az 168 saat) bulunamadı.")
+
+    # Girdi (X) ve Hedef (y) Belirleme
+    X = df[['hour', 'day_of_week', 'lag_1', 'lag_24', 'lag_168']]
+    y = df['val']
+
+    # 2. Model ve Eğitim Parametreleri
+    params = {
+        "n_estimators": 150, # Fiyat oynaklığı için biraz daha fazla ağaç
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "objective": 'reg:squarederror',
+        "random_state": 42
+    }
+    
+    model = XGBRegressor(**params)
+    model.fit(X, y)
+
+    # 3. Metrik Hesaplama (MAPE Dahil)
+    preds = model.predict(X)
+    y_array = np.array(y)
+    mask = y_array != 0
+    mape = np.mean(np.abs((y_array[mask] - preds[mask]) / y_array[mask])) * 100
+
+    metrics = {
+        "rmse": float(np.sqrt(mean_squared_error(y, preds))),
+        "mae": float(mean_absolute_error(y, preds)),
+        "r2": float(r2_score(y, preds)),
+        "mape": float(mape)
+    }
+
+    # 4. Kayıt ve Dosyalama
+    timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M')
+    model_name = f"price_model_{timestamp}.pkl"
+    model_path = os.path.join(model_dir, model_name)
+    
+    # Hem versiyonlu hem de aktif kullanım için kaydet
+    joblib.dump(model, model_path)
+    joblib.dump(model, "price_model.pkl")
 
     return model_path, params, metrics, list(X.columns), len(df)

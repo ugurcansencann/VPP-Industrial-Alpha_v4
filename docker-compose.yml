@@ -41,6 +41,8 @@ services:
       - "5432:5432"
   app:
     build: .
+    environment:
+      - TZ=Europe/Istanbul # Global saat dilimi ayarı
     depends_on:
       db:
         condition: service_healthy  # Sadece db sağlıklı olduğunda başla

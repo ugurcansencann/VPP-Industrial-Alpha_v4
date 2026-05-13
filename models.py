@@ -6,28 +6,8 @@ from sqlalchemy.sql import func
 # Hafızayı temizle (Hatanın kökünü kazır)
 Base.metadata.clear()
 
-class VPPMeterForecast(Base):
-    __tablename__ = "vpp_meter_forecasts"
 
-    id = Column(Integer, primary_key=True, index=True)
-    date = Column(Date, nullable=False)
-    hour = Column(String(5), nullable=False)
-    predicted_value = Column(Float, nullable=False) # Modelin ürettiği saf tahmin
-    meter_id = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-class MeterReading(Base):
-    __tablename__ = "meter_readings"
-    # extend_existing satırını SİLDİK
-
-    id = Column(Integer, primary_key=True, index=True) # PK geri geldi
-    date = Column(Date, nullable=False)
-    hour = Column(String(5), nullable=False)
-    data_typeid = Column(Integer, nullable=False)
-    meter_id = Column(String, ForeignKey("meters.meter_id"), nullable=False)
-    value = Column(Float, nullable=False)    
-    
-    meter = relationship("Meter", back_populates="readings")
 
 class Meter(Base):
     __tablename__ = "meters"
@@ -48,7 +28,20 @@ class DataType(Base):
     data_typename = Column(String(50), unique=True, nullable=False) # PTF, LOAD, SMF
     value = Column(Integer, unique=True, nullable=False)    # 1, 2, 3
 
+class VPPMeterForecast(Base):
+    __tablename__ = "vpp_meter_forecasts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False)
+    hour = Column(String(5), nullable=False)
+    predicted_value = Column(Float, nullable=False) # Modelin ürettiği saf tahmin
+    meter_id = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now()) # Güncellemede tetiklenir
+
+
 class VPPForecast(Base):
+    """Sistem geneli (PTF vb.) en güncel tahminler"""
     __tablename__ = "vpp_forecasts"
     
     id = Column(Integer, primary_key=True)#, index=True
@@ -56,10 +49,52 @@ class VPPForecast(Base):
     hour = Column(String(5), nullable=False)
     data_typeid = Column(Integer, ForeignKey("data_types.value"))
     value = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     __table_args__ = (UniqueConstraint('date', 'hour', 'data_typeid', name='_date_hour_type_uc'),)
 
 
+# --- GEÇMİŞ / HAVUZ TABLOLARI (PERFORMANS ANALİZİ İÇİN) ---
+
+class VPPMeterForecastHistory(Base):
+    """Sayaç bazlı tahminlerin tüm geçmişi"""
+    __tablename__ = "vpp_meter_forecast_history"
+    
+    id = Column(Integer, primary_key=True)
+    target_date = Column(Date, nullable=False)
+    target_hour = Column(String(5), nullable=False)
+    predicted_value = Column(Float, nullable=False)
+    meter_id = Column(String, ForeignKey("meters.meter_id"), nullable=False)
+    simulation_id = Column(Integer, ForeignKey("ml_model_simulations.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class VPPForecastHistory(Base):
+    """Piyasa/Sistem tahminlerinin (PTF/SMF) tüm geçmişi"""
+    __tablename__ = "vpp_forecast_history"
+    
+    id = Column(Integer, primary_key=True)
+    target_date = Column(Date, nullable=False)
+    target_hour = Column(String(5), nullable=False)
+    predicted_value = Column(Float, nullable=False)
+    data_typeid = Column(Integer, ForeignKey("data_types.value"), nullable=False)
+    simulation_id = Column(Integer, ForeignKey("ml_model_simulations.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# --- DİĞER TABLOLAR ---
+class MeterReading(Base):
+    __tablename__ = "meter_readings"
+    # extend_existing satırını SİLDİK
+
+    id = Column(Integer, primary_key=True, index=True) # PK geri geldi
+    date = Column(Date, nullable=False)
+    hour = Column(String(5), nullable=False)
+    data_typeid = Column(Integer, nullable=False)
+    meter_id = Column(String, ForeignKey("meters.meter_id"), nullable=False)
+    value = Column(Float, nullable=False)    
+    
+    meter = relationship("Meter", back_populates="readings")
 
 class MarketData(Base):
     __tablename__ = "market_data"
