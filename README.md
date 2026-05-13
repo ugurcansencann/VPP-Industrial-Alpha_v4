@@ -14,8 +14,11 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 *******************************************************************
 🛠 Öne Çıkan Özellikler
 **Çok Katmanlı Operasyon Modülleri:** Stratejik Plan A, anlık tepki odaklı Plan B ve fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini) modülleri entegre edildi.
+
 **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
+
 **Single Source of Truth (SSoT):** FastAPI backend ve Chart.js frontend arasında kurulan senkronize veri köprüsü ile dashboard ve simülasyon sonuçları arasında tam tutarlılık sağlandı.
+
 **Akıllı Yük Kaydırma:** Enerji fiyatlarının tepe yaptığı saatlerdeki yükü, düşük fiyatlı veya yenilenebilir üretimin yoğun olduğu saatlere kaydıran optimizasyon motoru eklendi.
 
 ```mermaid
