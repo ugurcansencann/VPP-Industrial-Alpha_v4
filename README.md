@@ -14,7 +14,7 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 *******************************************************************
 ### 🛠 Öne Çıkan Özellikler
 
-**Çok Katmanlı Operasyon Modülleri:** Stratejik Plan A, anlık tepki odaklı Plan B ve fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini) modülleri entegre edildi.
+**Çok Katmanlı Operasyon Modülleri:** Fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini), stratejik Plan A ve anlık tepki odaklı Plan B modülleri entegre edildi.
 
 - **Fiyat Tahmin (Plan F):** EPİAŞ PTF verilerini analiz ederek tahmin edilen ve gerçekleşen fiyat ortalamalarını sunar. Enerji satın alma stratejileri için finansal öngörü sağlar.
 
