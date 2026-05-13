@@ -30,6 +30,8 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 
 **Akıllı Yük Kaydırma:** Enerji fiyatlarının tepe yaptığı saatlerdeki yükü, düşük fiyatlı veya yenilenebilir üretimin yoğun olduğu saatlere kaydıran optimizasyon motoru eklendi.
 
+**Dinamik Performans Takibi:** Model metrikleri (MAE, MAPE, RMSE, $R^2$), her yeni eğitim (Retrain) sonrasında bir önceki simülasyon sonuçlarıyla otomatik olarak kıyaslanır. İyileşme durumunda (hata oranlarının düşmesi veya model skorunun artması) değerler anlık olarak yeşil, kötüleşme durumunda ise kırmızı renkle işaretlenerek karar destek mekanizması görsel olarak güçlendirilir.
+
 ```mermaid
 graph LR
     subgraph "1. Veri Kaynakları"
