@@ -24,52 +24,48 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 
 ```mermaid
 graph LR
-    subgraph "1. Veri Kaynakları & Orkestrasyon"
-        EP["EPİAŞ Şeffaflık (PTF Verisi)"]
-        IOT["IoT Sayaç (MeterReading)"]
-        AF["Apache Airflow (ETL Pipeline)"]
+    subgraph "1. Veri Kaynakları"
+        direction TB
+        EP["EPİAŞ (PTF)"]
+        IOT["IoT Sayaç"]
+        AF["Airflow ETL"]
         REDIS[("Redis Cache")]
+        EP & IOT --> AF
     end
 
-    subgraph "2. Analitik Katman (Intelligence)"
-        ML_TRAIN["Model Eğitimi (XGBoost)"]
-        PLAN_F["Plan F (Fiyat Tahminleme)"]
-        ML_FORECAST["Tüketim (Rolling Forecast)"]
-        OPT_ENGINE["Optimizasyon (PuLP / Maliyet Min.)"]
+    subgraph "2. Analitik Katman"
+        direction TB
+        ML_T["Model Eğitimi"]
+        ML_F["Tahmin (Load/Fiyat)"]
+        OPT["Optimizasyon (PuLP)"]
+        ML_T --> ML_F --> OPT
     end
 
-    subgraph "3. Servis Katmanı (Backend - FastAPI)"
-        API["FastAPI Endpointleri"]
-        DB_SQL[("PostgreSQL")]
-        SYNCHRONIZER["Sync Logic (SSoT)"]
-        VPP_CORE["VPP Logic & Summarizer"]
+    subgraph "3. Servis Katmanı"
+        direction TB
+        API["FastAPI"]
+        DB[(PostgreSQL)]
+        SYNC["Sync Logic"]
+        CORE["VPP Logic"]
+        DB <--> API
+        SYNC --> CORE
     end
 
-    subgraph "4. Sunum Katmanı (Frontend)"
-        UI["Dashboard (Plan A/B/F Control)"]
-        METRICS["ML Metrikleri (MAE/R2/MAPE)"]
-        CHART["Zaman Serisi Analizi (Chart.js)"]
+    subgraph "4. Sunum Katmanı"
+        direction TB
+        UI["Dashboard"]
+        MET["Metrikler"]
+        CH["Chart.js"]
+        UI --> MET & CH
     end
 
-    %% Yatay Veri Akışları (Soldan Sağa)
-    EP & IOT --> AF
-    AF --> DB_SQL
-    DB_SQL --> ML_TRAIN
-    ML_TRAIN --> ML_FORECAST & PLAN_F
-    
-    %% Optimizasyon ve Senkronizasyon
-    ML_FORECAST & PLAN_F --> OPT_ENGINE
-    OPT_ENGINE --> SYNCHRONIZER
-    SYNCHRONIZER --> VPP_CORE
-    
-    %% API & UI
-    VPP_CORE <--> API
-    API <--> REDIS
-    API <--> DB_SQL
-    
-    API -- "JSON (Unified Data)" --> UI
-    UI --> METRICS & CHART
-    
-    style SYNCHRONIZER fill:#f96,stroke:#333,stroke-width:2px
-    style VPP_CORE fill:#bbf,stroke:#333,stroke-width:2px
+    %% Katmanlar Arası Yatay Akış
+    AF --> DB
+    DB --> ML_T
+    OPT --> SYNC
+    CORE --> API
+    API --> UI
+
+    style SYNC fill:#f96,stroke:#333,stroke-width:2px
+    style CORE fill:#bbf,stroke:#333,stroke-width:2px
     style REDIS fill:#ff9999,stroke:#333
