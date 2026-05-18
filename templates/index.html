@@ -696,43 +696,68 @@ async function updateDashboard() {
             // Eğer seans yarın ise (is_tomorrow), doğrudan ilk seansı referans alabiliriz veya tüm günün ortalama riskini verebiliriz.
             // Bu kurguda gün içi akıştaki en güncel gerçekleşen saati, yoksa ilk saati seçiyoruz.
             let activeEntry = data[0];
-            for (let i = 0; i < data.length; i++) {
-                const itemHour = parseInt(data[i].hour.split(':')[0], 10);
-                if (itemHour <= currentHour && !result.is_tomorrow) {
-                    activeEntry = data[i];
-                }
-            }
+            let cumulativeFinancialEffect = 0;
+            let maxRiskSpread = 0;
+            let maxRiskHour = "00:00";
 
-            // Üst Kart Güncelleme (Plan B - Spread Analizi)
-            const ptf = Number(activeEntry.ptf) || 0;
-            const smf = Number(activeEntry.smf) || 0;
-            const spread = (smf - ptf).toFixed(2);
-            
-            const bPriceEl = document.getElementById('plan-b-price');
-            if (bPriceEl) {
-                bPriceEl.innerHTML = `${spread} <small>₺</small>`;
-                // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
-                bPriceEl.style.color = Number(spread) >= 0 ? '#10b981' : '#f43f5e';
-            }
-
-            // --- GRAFİK STRATEJİSİ (Çift Eksen Hazırlığı) ---
-            // Fiyat çizgilerinin yanına dikey Bar olarak basılacak "Dengesizlik Miktarı (kWh)" dizisini hesaplıyoruz
+            // Veriyi baştan sona analiz ediyoruz
             const imbalanceKwhDataset = data.map(item => {
                 const itemHour = parseInt(item.hour.split(':')[0], 10);
-                const hasRealized = !result.is_tomorrow && (itemHour <= currentHour);
                 
-                if (hasRealized) {
-                    // Yaşanmış saat ise: Gerçekleşen Yük - Tahmini Yük (Not: Endpoint'teki yükleri baz alıyoruz)
-                    // Gerçek yükü simüle etmek için tablodaki mantıkla senkronize sapma hesaplıyoruz
-                    const forecastLoad = Number(item.load || 0);
-                    // actual_load endpoint'ten dönüyorsa onu kullanır, yoksa kararlı rastsal üretir
-                    const actualLoad = item.actual_load !== undefined ? Number(item.actual_load) : forecastLoad * (1 + (Math.sin(itemHour) * 0.08)); 
-                    return Number((actualLoad - forecastLoad).toFixed(2));
-                } else {
-                    // Gelecek veya tahmin seansları için grafikte barlar sıfır görünür (Sadece fiyat çizgileri akar)
-                    return 0;
+                const ptf = Number(item.ptf) || 0;
+                const smf = Number(item.smf) || 0;
+                const spread = smf - ptf;
+
+                const forecastLoad = Number(item.forecast_load) || 0;
+                const actualLoad = (item.actual_load !== null && item.actual_load !== undefined) ? Number(item.actual_load) : forecastLoad;
+                
+                // Net enerji açığı/fazlası (Dengesizlik Miktarı)
+                const netImbalance = actualLoad - forecastLoad;
+
+                // Mali etki simülasyonu (Tablodaki mantıkla paralel)
+                // Sistem YAL ise ve biz eksik üretmişsek ceza yeriz vb.
+                let financialImpact = 0;
+                if (spread !== 0) {
+                    financialImpact = netImbalance * spread * -0.001; // Örnek katsayı maliyeti
+                    if (itemHour <= currentHour && !result.is_tomorrow) {
+                        cumulativeFinancialEffect += financialImpact;
+                    }
                 }
+
+                // En yüksek riskli/fırsatlı seansı bulma
+                if (Math.abs(spread) > Math.abs(maxRiskSpread)) {
+                    maxRiskSpread = spread;
+                    maxRiskHour = item.hour;
+                }
+
+                if (itemHour === currentHour && !result.is_tomorrow) {
+                    activeEntry = item;
+                }
+
+                return Number(netImbalance.toFixed(2));
             });
+
+
+            // --- ÜST KARTIN ANLAMLANDIRILMASI ---
+            // Sadece kuru bir spread yerine, günün can damarı olan metrikleri basıyoruz
+            const bPriceEl = document.getElementById('plan-b-price');
+            if (bPriceEl) {
+                // Eğer yaşanmış saatler varsa kümülatif finansal etkiyi, yoksa günün max spread riskini göster
+                if (cumulativeFinancialEffect !== 0) {
+                    bPriceEl.innerHTML = `${cumulativeFinancialEffect.toFixed(2)} <small>₺ (Net)</small>`;
+                    bPriceEl.style.color = cumulativeFinancialEffect >= 0 ? '#10b981' : '#f43f5e';
+                    
+                    // Altındaki küçük etiketi veya başlığı manipüle edebiliriz:
+                    const titleEl = bPriceEl.previousElementSibling;
+                    if (titleEl && titleEl.innerText.includes("Spread")) {
+                        titleEl.innerHTML = `Küm. Mali Etki <span style="font-size:11px; opacity:0.7;">(Saat ${currentHour}:00'e kadar)</span>`;
+                    }
+                } else {
+                    // Gelecek gün planlaması ise Max Risk Penceresini gösterir
+                    bPriceEl.innerHTML = `${maxRiskSpread.toFixed(2)} <small>₺</small>`;
+                    bPriceEl.style.color = maxRiskSpread >= 0 ? '#10b981' : '#f43f5e';
+                }
+            }
 
             // Grafik: PTF vs SMF karşılaştırması + Dengesizlik Miktarı (kWh) Bar Verisi
             updateChart(
@@ -1133,31 +1158,29 @@ async function updateDashboard() {
     }
     
     // Plana göre chart
-    function updateChart(labels, mainData, secondaryData, secondaryLabel, dataList = []) {
+    // Plana göre dinamik ve hibrit chart mimarisi
+function updateChart(labels, mainData, secondaryData, secondaryLabel, dataList = []) {
     const ctx = document.getElementById('marketChart').getContext('2d');
     const titleElement = document.getElementById('chart-title');
     
-    // 1. MOD BAZLI BAŞLIK VE RENK ATAMALARI
+    // 1. MOD BAZLI CONFIG TANIMLAMALARI
     const config = {
         'A': {
             title: 'Plan A: PTF vs Yük Tahmin Karşılaştırması',
             primaryColor: '#22d3ee',   // Cyan (PTF)
-            secondaryColor: '#f8fafc', // Parlak Beyaz/Gri (Tahmin - Mor yerine daha temiz)
-            isSecondaryDashed: true,   // Tahmin olduğu belli olsun diye kesikli
+            secondaryColor: '#f8fafc', // Parlak Beyaz/Gri (Tahmin)
             fillPrimary: true
         },
         'B': {
-            title: 'Plan B: Fiyat Trend Analizi (PTF vs SMF)',
-            primaryColor: '#22d3ee',   
+            title: 'Plan B: Fiyat Trendi & Dengesizlik Analizi (PTF vs SMF)',
+            primaryColor: '#22d3ee',   // Cyan (PTF)
             secondaryColor: '#fbbf24', // Amber (SMF)
-            isSecondaryDashed: false,
             fillPrimary: false
         },
         'F': {
             title: 'Plan F: PTF vs Tahmini PTF Karşılaştırması',
             primaryColor: '#22d3ee',   
             secondaryColor: '#f43f5e', // Rose (Plan F Tahmini)
-            isSecondaryDashed: false,
             fillPrimary: false
         }
     };
@@ -1167,68 +1190,98 @@ async function updateDashboard() {
 
     if (myChart) myChart.destroy();
 
-    const isPlanF = currentMode === 'F';
+    // 2. DATASETS DİNAMİK YAPILANDIRMASI
+    let datasets = [
+        { 
+            label: 'Gerçek PTF (₺)', 
+            data: mainData, 
+            type: 'line',
+            borderColor: currentCfg.primaryColor, 
+            backgroundColor: `${currentCfg.primaryColor}1A`, 
+            fill: currentCfg.fillPrimary,
+            tension: 0.3,
+            pointRadius: 0, 
+            yAxisID: 'y' // Her zaman sol eksen
+        },
+        { 
+            label: secondaryLabel, 
+            data: secondaryData, 
+            type: 'line',
+            borderColor: currentCfg.secondaryColor, 
+            borderWidth: 2,
+            backgroundColor: 'transparent',
+            fill: false, 
+            tension: 0.4,
+            pointRadius: 0,
+            // PLAN B ise SMF sol eksene (PTF'in yanına) gelsin, Plan A/F ise sağ eksene veya genel akışa
+            yAxisID: currentMode === 'B' ? 'y' : (currentMode === 'F' ? 'y' : 'y1'),
+            segment: {
+                borderColor: ctx => {
+                    if (currentMode === 'A' && dataList.length > 0) {
+                        const index = ctx.p0DataIndex;
+                        const isForecast = dataList[index] && dataList[index].is_forecast;
+                        return isForecast ? '#fbbf24' : currentCfg.secondaryColor;
+                    }
+                    return currentCfg.secondaryColor;
+                },
+                borderDash: ctx => {
+                    const index = ctx.p0DataIndex;
+                    return (currentMode === 'A' && dataList[index] && dataList[index].is_forecast) ? [5, 5] : [];
+                }
+            }
+        }
+    ];
+
+    // --- KRİTİK EKLEME: PLAN B MODUNDA ARKA PLANA DİKEY BAR EKLEME ---
+    // dataList içindeki kWh değerlerini sağ eksen üzerinden dikey sütun grafiği yapar
+    if (currentMode === 'B' && dataList.length > 0) {
+        datasets.push({
+            label: 'Dengesizlik Miktarı (kWh)',
+            data: dataList, // updateDashboard'dan gelen imbalanceKwhDataset dizisi
+            type: 'bar',
+            yAxisID: 'y1', // Sadece sağ ekseni kullanacak
+            backgroundColor: function(context) {
+                const value = context.raw;
+                // Enerji fazlası (pozitif) yeşil fon, enerji açığı (negatif) kırmızı fon
+                return value >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
+            },
+            borderColor: function(context) {
+                const value = context.raw;
+                return value >= 0 ? '#10b981' : '#f43f5e';
+            },
+            borderWidth: 1,
+            barPercentage: 0.7,
+            categoryPercentage: 0.8
+        });
+    }
+
+    // 3. EKSEN (SCALES) AYARLARININ DİNAMİK YAPILANDIRMASI
+    // Plan B'de sağ eksen tamamen kWh olurken, diğer modlarda fiyat/yük ekseni olarak kalır
+    const rightAxisTitle = currentMode === 'B' ? 'Dengesizlik Miktarı (kWh)' : secondaryLabel;
 
     myChart = new Chart(ctx, {
-        type: 'line',
         data: {
             labels: labels,
-            datasets: [
-                { 
-                    label: 'Gerçek PTF (₺)', 
-                    data: mainData, 
-                    borderColor: currentCfg.primaryColor, 
-                    backgroundColor: `${currentCfg.primaryColor}1A`, 
-                    fill: currentCfg.fillPrimary,
-                    tension: 0.3,
-                    pointRadius: 0, // Çizgi daha temiz görünsün diye noktaları gizledik
-                    yAxisID: 'y' 
-                },
-                { 
-                    label: secondaryLabel, 
-                    data: secondaryData, 
-                    borderColor: currentCfg.secondaryColor, 
-                    // --- EKLEME: Dinamik Segment Renklendirme ---
-                    segment: {
-                        borderColor: ctx => {
-                            if (currentMode === 'A' && dataList.length > 0) {
-                                const index = ctx.p0DataIndex;
-                                const isForecast = dataList[index] && dataList[index].is_forecast;
-                                return isForecast ? '#fbbf24' : currentCfg.secondaryColor;
-                            }
-                            return currentCfg.secondaryColor;
-                        },
-                        borderDash: ctx => {
-                            const index = ctx.p0DataIndex;
-                            return (currentMode === 'A' && dataList[index] && dataList[index].is_forecast) ? [5, 5] : [];
-                        }
-                    },
-                    // ------------------------------------------
-                    borderWidth: 2,
-                    backgroundColor: 'transparent',
-                    fill: false, 
-                    tension: 0.4,
-                    pointRadius: 0,
-                    yAxisID: isPlanF ? 'y' : 'y1' 
-                }
-            ]
+            datasets: datasets
         },
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
             scales: {
                 y: { 
+                    type: 'linear',
                     position: 'left', 
                     grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, 
                     ticks: { color: '#94a3b8', font: { size: 11 } }, 
                     title: { display: true, text: 'Fiyat (₺)', color: '#94a3b8', font: { weight: 'bold' } } 
                 },
                 y1: { 
-                    display: !isPlanF, 
+                    type: 'linear',
+                    display: currentMode !== 'F', // Plan F'te sağ ekseni gizle
                     position: 'right', 
-                    grid: { drawOnChartArea: false },
+                    grid: { drawOnChartArea: false }, // Sol eksenin ızgara çizgileriyle çakışmasın
                     ticks: { color: '#94a3b8', font: { size: 11 } }, 
-                    title: { display: true, text: secondaryLabel, color: '#94a3b8', font: { weight: 'bold' } } 
+                    title: { display: true, text: rightAxisTitle, color: '#94a3b8', font: { weight: 'bold' } } 
                 },
                 x: { 
                     grid: { display: false }, 
@@ -1267,7 +1320,6 @@ async function updateDashboard() {
         }
     });
 }
-    
 
 
     // MAE hesaplama

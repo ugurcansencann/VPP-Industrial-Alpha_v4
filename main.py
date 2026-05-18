@@ -343,7 +343,8 @@ async def get_latest_market_data_planB(db: Session = Depends(get_db)):
             "hour": f"{i:02d}:00", 
             "ptf": 0.0, 
             "smf": 0.0,
-            "load": 0.0,            # Frontend'in beklediği orijinal 'load' anahtarı
+            "sistem_yonu": "DENGEDE",
+            "load": 0.0,            
             "actual_load": None, 
             "forecast_load": 0.0, 
             "display_load": 0.0, 
@@ -359,17 +360,37 @@ async def get_latest_market_data_planB(db: Session = Depends(get_db)):
                 final_load = actual_val if actual_val is not None else forecast_val
                 
                 ptf_val = round(float(r.ptf), 2) if r.ptf is not None else 0.0
-                smf_val = round(float(r.smf), 2) if r.smf is not None else 0.0
+                raw_smf = float(r.smf) if r.smf is not None else 0.0
+                
+                # --- [YENİ] SMF TAHMİN / KESTİRİM MOTORU (YAL0/YAT0 MANTIĞI) ---
+                if raw_smf == 0.0:
+                    current_hour_int = int(r.hour.split(':')[0])
+                    
+                    # Akşam pik saatleri (17:00 - 22:00) genelde sistem enerji açığına (YAL) düşer
+                    if 17 <= current_hour_int <= 22:
+                        sistem_yonu = "YAL"
+                        smf_val = round(ptf_val * 1.18, 2)  # PTF'in %18 üzerinde ceza fiyatı tahmini
+                    # Gece ve sabaha karşı seansları genelde enerji fazlasına (YAT) kayar
+                    elif 0 <= current_hour_int <= 6:
+                        sistem_yonu = "YAT"
+                        smf_val = round(ptf_val * 0.82, 2)  # PTF'in %18 altında fırsat fiyatı tahmini
+                    else:
+                        sistem_yonu = "DENGEDE"
+                        smf_val = ptf_val
+                else:
+                    smf_val = round(raw_smf, 2)
+                    sistem_yonu = "YAL" if smf_val > ptf_val else ("YAT" if smf_val < ptf_val else "DENGEDE")
                 
                 combined_map[r.hour] = {
                     "hour": r.hour,
                     "ptf": ptf_val,
                     "smf": smf_val,
-                    "load": final_load,         # frontend map döngüsündeki item.load için tam uyum
+                    "sistem_yonu": sistem_yonu,
+                    "load": final_load,         # frontend map döngüsündeki item.load için
                     "actual_load": actual_val,
                     "forecast_load": forecast_val,
                     "display_load": final_load,
-                    "is_forecast": r.actual_load is None
+                    "is_forecast": actual_val is None
                 }
                 
         dashboard_data = list(combined_map.values())
