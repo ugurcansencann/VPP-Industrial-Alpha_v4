@@ -247,51 +247,144 @@ async def get_latest_market_data_planA(db: Session = Depends(get_db)):
         db.rollback()
         return {"status": "error", "message": str(e)}
 
-from fastapi import FastAPI, Query
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from datetime import datetime, timedelta
-from crud import get_24h_data_by_type 
+
 @app.get("/api/v1/market-data/planB")
 async def get_latest_market_data_planB(db: Session = Depends(get_db)):
     
     # 1. Hedef Tarih Belirleme (14:00 Kuralı)
-    # Eğer saat 14:00'ü geçtiyse hedef yarındır, geçmediyse bugündür.
-    # 1. Ham tarih belirleme (Mimariyi bozmaz)
-    base_date = (datetime.now().date() + timedelta(days=1)) if datetime.now().hour >= 14 else datetime.now().date()
+    base_date = (datetime.now().date() + timedelta(days=0)) if datetime.now().hour >= 14 else datetime.now().date()
     
     # 2. Profesyonel Kontrol: Veri mevcudiyetine göre nihai tarihi al
     target_date = await get_calculable_target_date(db, base_date)
     
-    # 2. Verileri Çek
-    ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
-    load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
-    smf_results = crud.get_24h_data_by_type(db, target_date, 3, MarketData)
-
-    # 3. Fallback (Yarın verisi henüz manuel girilmemişse bugüne dön)
-    if not ptf_results and target_date > datetime.now().date():
-        target_date = datetime.now().date()
-        ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
-        load_results = crud.get_24h_data_by_type(db, target_date, 2, VPPForecast)
-        smf_results = crud.get_24h_data_by_type(db, target_date, 3, MarketData)
-
-    # 4. Veri Birleştirme (Frontend'in beklediği format)
-    # 24 saatlik bir sözlük oluşturarak ptf ve load'u eşleştiriyoruz
-    combined = {f"{i:02d}:00": {"hour": f"{i:02d}:00", "ptf": 0.0, "load": 0.0, "smf": 0.0} for i in range(24)}
+    meter_id = "MTR_00001"
     
-    for r in ptf_results:
-        combined[r.hour]["ptf"] = round(float(r.value), 2)
-    
-    for r in load_results:
-        combined[r.hour]["load"] = round(float(r.value), 2)
+    try:
+        # --- ADIM 1: TAHMİN MEVCUDİYET KONTROLÜ ---
+        await ensure_meter_forecast_exists(db, target_date, meter_id)
+        
+        # --- ADIM 2: TEK SORGULU (SINGLE QUERY) İLİŞKİSEL BİRLEŞTİRME MİMARİSİ ---
+        # MarketData tablosunu hem PTF (data_typeid=1) hem de SMF (data_typeid=3) için iki kez joinliyoruz.
+        from sqlalchemy.orm import aliased
+        MarketDataPTF = aliased(MarketData, name="market_data_ptf")
+        MarketDataSMF = aliased(MarketData, name="market_data_smf")
+        
+        results = db.query(
+            VPPMeterForecast.hour,
+            VPPMeterForecast.value.label("forecast_load"),    # Tahmin Yükü
+            MeterReading.value.label("actual_load"),          # Gerçek Yük (Sayaç)
+            MarketDataPTF.value.label("ptf"),                 # PTF (type_id=1)
+            MarketDataSMF.value.label("smf")                  # SMF (type_id=3)
+        ).outerjoin(
+            MeterReading, and_(
+                MeterReading.date == VPPMeterForecast.date,
+                MeterReading.hour == VPPMeterForecast.hour,
+                MeterReading.meter_id == VPPMeterForecast.meter_id
+            )
+        ).outerjoin(
+            MarketDataPTF, and_(
+                MarketDataPTF.date == VPPMeterForecast.date,
+                MarketDataPTF.hour == VPPMeterForecast.hour,
+                MarketDataPTF.data_typeid == 1
+            )
+        ).outerjoin(
+            MarketDataSMF, and_(
+                MarketDataSMF.date == VPPMeterForecast.date,
+                MarketDataSMF.hour == VPPMeterForecast.hour,
+                MarketDataSMF.data_typeid == 3
+            )
+        ).filter(
+            VPPMeterForecast.date == target_date,
+            VPPMeterForecast.meter_id == meter_id
+        ).order_by(VPPMeterForecast.hour.asc()).all()
+        
+        # --- ADIM 3: FALLBACK MEKANİZMASI ---
+        # Eğer veri dönmediyse ve hedef tarih yarın ise bugüne güvenli dönüş yap
+        if not results and target_date > datetime.now().date():
+            target_date = datetime.now().date()
+            results = db.query(
+                VPPMeterForecast.hour,
+                VPPMeterForecast.value.label("forecast_load"),
+                MeterReading.value.label("actual_load"),
+                MarketDataPTF.value.label("ptf"),
+                MarketDataSMF.value.label("smf")
+            ).outerjoin(
+                MeterReading, and_(
+                    MeterReading.date == VPPMeterForecast.date,
+                    MeterReading.hour == VPPMeterForecast.hour,
+                    MeterReading.meter_id == VPPMeterForecast.meter_id
+                )
+            ).outerjoin(
+                MarketDataPTF, and_(
+                    MarketDataPTF.date == VPPMeterForecast.date,
+                    MarketDataPTF.hour == VPPMeterForecast.hour,
+                    MarketDataPTF.data_typeid == 1
+                )
+            ).outerjoin(
+                MarketDataSMF, and_(
+                    MarketDataSMF.date == VPPMeterForecast.date,
+                    MarketDataSMF.hour == VPPMeterForecast.hour,
+                    MarketDataSMF.data_typeid == 3
+                )
+            ).filter(
+                VPPMeterForecast.date == target_date,
+                VPPMeterForecast.meter_id == meter_id
+            ).order_by(VPPMeterForecast.hour.asc()).all()
 
-    for r in smf_results:
-        combined[r.hour]["smf"] = round(float(r.value), 2)
+        # --- ADIM 4: VERİ PARSE VE SÖZLÜK YAPILANDIRMASI ---
+        dashboard_data = []
+        
+        # 24 saatlik boşluk kalmaması için baz şablon oluşturuyoruz
+        combined_map = {f"{i:02d}:00": {
+            "hour": f"{i:02d}:00", 
+            "ptf": 0.0, 
+            "smf": 0.0,
+            "load": 0.0,            # Frontend'in beklediği orijinal 'load' anahtarı
+            "actual_load": None, 
+            "forecast_load": 0.0, 
+            "display_load": 0.0, 
+            "is_forecast": True
+        } for i in range(24)}
+        
+        for r in results:
+            if r.hour in combined_map:
+                actual_val = float(r.actual_load) if r.actual_load is not None else None
+                forecast_val = float(r.forecast_load) if r.forecast_load is not None else 0.0
+                
+                # Öncelik her zaman gerçek veride
+                final_load = actual_val if actual_val is not None else forecast_val
+                
+                ptf_val = round(float(r.ptf), 2) if r.ptf is not None else 0.0
+                smf_val = round(float(r.smf), 2) if r.smf is not None else 0.0
+                
+                combined_map[r.hour] = {
+                    "hour": r.hour,
+                    "ptf": ptf_val,
+                    "smf": smf_val,
+                    "load": final_load,         # frontend map döngüsündeki item.load için tam uyum
+                    "actual_load": actual_val,
+                    "forecast_load": forecast_val,
+                    "display_load": final_load,
+                    "is_forecast": r.actual_load is None
+                }
+                
+        dashboard_data = list(combined_map.values())
 
-    return {
-        "status": "success",
-        "date": target_date.strftime('%Y-%m-%d'),
-        "is_tomorrow": target_date > datetime.now().date(),
-        "data": list(combined.values())
-    }
+        return {
+            "status": "success",
+            "date": target_date.strftime('%Y-%m-%d'),
+            "is_tomorrow": target_date > datetime.now().date(),
+            "data": dashboard_data
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+
 
 @app.get("/api/v1/market-data/planF")
 async def get_latest_market_data_planF(db: Session = Depends(get_db)):
@@ -536,7 +629,7 @@ import joblib
 import pandas as pd
 from train_model import get_model_prediction, meter_forecasting_expo_testing, meter_forecasting_lstm_testing
 @app.post("/api/v1/retrain-and-refresh-planA")
-async def retrain_and_refresh(model_type: str = "lstm", db: Session = Depends(get_db)):
+async def retrain_and_refresh(model_type: str = "baseline", db: Session = Depends(get_db)):
     
     try:
         # 1. Ham tarih belirleme (Mimariyi bozmaz)

@@ -287,98 +287,101 @@
                 <span id="last-update-time" class="text-dim" style="opacity: 0.7; font-family: monospace;">--:--:--</span>
             </div>
         </div>
-
-        <!-- Üstteki 4'lü Panel Grubu -->
-        <div class="row g-4">
-            <!-- YENİ PANEL 1: FİYAT TAHMİN -->
-            <div class="col-md-3">
-                <!-- ID ekledik, çift class hatasını düzelttik ve görseldeki mavi sol çizgiyi (border-left) ekledik -->
-                <div id="card-plan-f" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #fc0000;" onclick="switchMode('F')">
-                    <div class="card-title" style="font-size: 1.2rem;">Fiyat Tahmin</div>
-                    
-                    <!-- Başlık altındaki ayırıcı çizgi -->
-                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 15px;"></div>
-                    
-                    <div class="mt-2">
-                        <!-- 24 Saatlik Tahmin style="font-weight: bold;" -->
-                        <div class="small text-dim">Tahmini PTF Ortalaması:</div>
-                        <div class="h2 mb-1" id="avg-forecast" >-- <small>₺</small></div>
+        
+            <!-- Üstteki 4'lü Panel Grubu -->
+            <div class="row g-4">
+                <!-- YENİ PANEL 1: FİYAT TAHMİN -->
+                <div class="col-md-3">
+                    <!-- ID ekledik, çift class hatasını düzelttik ve görseldeki mavi sol çizgiyi (border-left) ekledik -->
+                    <div id="card-plan-f" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #fc0000;" onclick="switchMode('F')">
+                        <div class="card-title" style="font-size: 1.2rem;">Fiyat Tahmin</div>
                         
-                        <!-- Günlük Reel Ortalama -->
-                        <div class="small text-dim mt-4">Gerçekleşen PTF Ortalaması:</div>
-                        <div class="h5" id="avg-real" >-- <small style="font-size: 0.8rem;">₺</small></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PANEL 2: MALİYET OPTİMİZASYONU (ESKİ 1) -->
-            <div class="col-md-3">
-                <div id="card-plan-a" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #ffffff;" onclick="switchMode('A')">
-                    <div class="card-title" style="font-size: 1.2rem;">Maliyet Optimizasyonu</div>
-                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 12px;"></div>
-                    
-                    <div class="small text-dim" style="font-size: 0.9rem; margin-bottom: 10px;">Yük Kaydırma Potansiyeli</div>
-            
-                    <div class="d-flex justify-content-between px-2 mb-1" style="font-size: 0.65rem; color: #64748b; letter-spacing: 1px;">
-                        <div style="width: 40%;">BİRİM</div>
-                        <div style="width: 30%; text-align: center;">Ortalama</div>
-                        <div style="width: 30%; text-align: right;">Toplam</div>
-                    </div>
-            
-                    <div class="optimization-row mb-2">
-                        <div class="d-flex align-items-center">
-                            <div style="width: 40%;">
-                                <div class="small-tag">Enerji</div>
-                                <span class="unit-label">kWh</span>                                
-                            </div>
-                            <div class="data-value text-center" style="width: 30%;" id="shift-avg-kwh">0.00</div>
-                            <div class="data-value text-end highlight-kwh" style="width: 30%;" id="shift-total-kwh">0.00</div>
+                        <!-- Başlık altındaki ayırıcı çizgi -->
+                        <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 15px;"></div>
+                        
+                        <div class="mt-2">
+                            <!-- 24 Saatlik Tahmin style="font-weight: bold;" -->
+                            <div class="small text-dim">Tahmini PTF Ortalaması:</div>
+                            <div class="h2 mb-1" id="avg-forecast" >-- <small>₺</small></div>
+                            
+                            <!-- Günlük Reel Ortalama -->
+                            <div class="small text-dim mt-4">Gerçekleşen PTF Ortalaması:</div>
+                            <div class="h5" id="avg-real" >-- <small style="font-size: 0.8rem;">₺</small></div>
                         </div>
                     </div>
-            
-                    <div class="optimization-row">
-                        <div class="d-flex align-items-center">
-                            <div style="width: 40%;">
-                                <div class="small-tag-tl">Tasarruf</div>
-                                <span class="unit-label">TL</span>                                
+                </div>
+
+                <!-- PANEL 2: MALİYET OPTİMİZASYONU (ESKİ 1) -->
+                <div class="col-md-3">
+                    <div id="card-plan-a" class="vpp-card plan-card clickable" style="min-height: 230px; border-left: 4px solid #ffffff;" onclick="switchMode('A')">
+                        <div class="card-title" style="font-size: 1.2rem;">Maliyet Optimizasyonu</div>
+                        <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 12px;"></div>
+                        
+                        <div class="small text-dim" style="font-size: 0.9rem; margin-bottom: 10px;">Yük Kaydırma Potansiyeli</div>
+                
+                        <div class="d-flex justify-content-between px-2 mb-1" style="font-size: 0.65rem; color: #64748b; letter-spacing: 1px;">
+                            <div style="width: 40%;">BİRİM</div>
+                            <div style="width: 30%; text-align: center;">Ortalama</div>
+                            <div style="width: 30%; text-align: right;">Toplam</div>
+                        </div>
+                
+                        <div class="optimization-row mb-2">
+                            <div class="d-flex align-items-center">
+                                <div style="width: 40%;">
+                                    <div class="small-tag">Enerji</div>
+                                    <span class="unit-label">kWh</span>                                
+                                </div>
+                                <div class="data-value text-center" style="width: 30%;" id="shift-avg-kwh">0.00</div>
+                                <div class="data-value text-end highlight-kwh" style="width: 30%;" id="shift-total-kwh">0.00</div>
                             </div>
-                            <div class="data-value text-center" style="width: 30%;" id="shift-avg-tl">0.00</div>
-                            <div class="data-value text-end highlight-tl" style="width: 30%;" id="shift-total-tl">0.00</div>
+                        </div>
+                
+                        <div class="optimization-row">
+                            <div class="d-flex align-items-center">
+                                <div style="width: 40%;">
+                                    <div class="small-tag-tl">Tasarruf</div>
+                                    <span class="unit-label">TL</span>                                
+                                </div>
+                                <div class="data-value text-center" style="width: 30%;" id="shift-avg-tl">0.00</div>
+                                <div class="data-value text-end highlight-tl" style="width: 30%;" id="shift-total-tl">0.00</div>
+                            </div>
+                        </div>
+                
+                        <div id="plan-a-label" style="display:none;"></div>
+                        <div id="plan-a-price" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: DENGESİZLİK YÖNETİMİ (ESKİ 2) -->
+                <div class="col-md-3">
+                    <div id="card-plan-b" class="vpp-card plan-card clickable active-plan" style="min-height: 230px;" onclick="switchMode('B')">
+                        <div class="card-title" style="font-size: 1.2rem;">Dengesizlik Yönetimi</div>
+                        <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>                    
+                        
+                        <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Response</div>                    
+                        <div class="small text-dim mt-2" id="plan-b-label">Son Saat Spread:</div>
+                        <div class="h2 mb-1" id="plan-b-price">0.00 <small>₺</small></div>
+                    </div>
+                </div>
+
+                <!-- PANEL 4: SİSTEM DURUMU / ENERJİ AÇIĞI (ESKİ 3) -->
+                <div class="col-md-3">
+                    <div class="vpp-card" style="min-height: 230px;">                    
+
+                        <div id="market-direction" class="stat-value text-white" style="font-size: 1.2rem;">YÜKLENİYOR...</div>
+                        <div class="mt-auto pt-2 border-top border-secondary">
+                            <span id="yal-yat-status" class="small text-dim">PTF: 0 | SMF: 0</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+        
             
-                    <div id="plan-a-label" style="display:none;"></div>
-                    <div id="plan-a-price" style="display:none;"></div>
-                </div>
-            </div>
-
-            <!-- PANEL 3: DENGESİZLİK YÖNETİMİ (ESKİ 2) -->
-            <div class="col-md-3">
-                <div id="card-plan-b" class="vpp-card plan-card clickable active-plan" style="min-height: 230px;" onclick="switchMode('B')">
-                    <div class="card-title" style="font-size: 1.2rem;">Dengesizlik Yönetimi</div>
-                    <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px; margin-bottom: 15px;"></div>                    
-                    
-                    <div class="small text-dim" style="font-size: 1.1rem;">PLAN B: Response</div>                    
-                    <div class="small text-dim mt-2" id="plan-b-label">Son Saat Spread:</div>
-                    <div class="h2 mb-1" id="plan-b-price">0.00 <small>₺</small></div>
-                </div>
-            </div>
-
-            <!-- PANEL 4: SİSTEM DURUMU / ENERJİ AÇIĞI (ESKİ 3) -->
-            <div class="col-md-3">
-                <div class="vpp-card" style="min-height: 230px;">                    
-
-                    <div id="market-direction" class="stat-value text-white" style="font-size: 1.2rem;">YÜKLENİYOR...</div>
-                    <div class="mt-auto pt-2 border-top border-secondary">
-                        <span id="yal-yat-status" class="small text-dim">PTF: 0 | SMF: 0</span>
-                    </div>
-                </div>
-            </div>
-        </div>
 
 
             <!-- Grafik Bölümü -->
-            <div class="row g-4 mt-1">
+            <div class="row g-4 mt-3">
                 <!-- Grafik Bölümü -->
                 <div class="col-md-9">
                     <div class="vpp-card">
@@ -446,6 +449,7 @@
             </div>
             <div class="row">
         <!-- Veritabanı Tablosu -->
+        <div style="margin-bottom: 3rem !important;"></div>
                 <div class="col-md-12">
                     <div class="vpp-card">
                         <div class="stat-label mb-3">IoT + Piyasa Arbitraj Günlüğü (Son 24 Kayıt)</div>
@@ -529,12 +533,14 @@
                 // 4. GRAFİK GÜNCELLEME
                 updateChart(
                     combinedData.map(d => d.hour),
-                    combinedData.map(d => d.ptf), // Tahmin edilen yük
-                    combinedData.map(d => d.load),  // Piyasa fiyatı
+                    combinedData.map(d => d.ptf), // Piyasa fiyatı
+                    combinedData.map(d => d.load),  // Tahmin edilen yük
                     'ML Sayaç Tahmini (kWh)',
                     combinedData
                 );
-
+                const actualloads = combinedData.map(item => Number(item.actual_load) || 0);
+                const forecastloads = combinedData.map(item => Number(item.forecast_load) || 0);
+                processPriceData(actualloads, forecastloads)
                 // 5. TABLO GÜNCELLEME
                 // combinedData içindeki reduction, savings ve action alanlarını tabloya paslar
                 renderTableUnified(combinedData, 'A');
@@ -671,52 +677,83 @@
         }
     }
     // Plan B'ye göre, dashboard içeriği oluşturma
-    async function updateDashboard() {
-        if (currentMode !== 'B') return; 
+async function updateDashboard() {
+    if (currentMode !== 'B') return; 
 
-        try {
-            // YENİ ENDPOINT: planB çağrılıyor
-            const response = await fetch('/api/v1/market-data/planB');
-            const result = await response.json();
+    try {
+        // YENİ ENDPOINT: planB çağrılıyor
+        const response = await fetch('/api/v1/market-data/planB');
+        const result = await response.json();
 
-            if (result.status === "success" && result.data.length > 0) {
-                const data = result.data;
-                
-                // Son veriyi al (Genelde tablodaki en güncel saat için)
-                const lastEntry = data[data.length - 1]; 
-                
-                // Üst Kart Güncelleme (Plan B - Spread Analizi)
-                const ptf = Number(lastEntry.ptf) || 0;
-                const load = Number(lastEntry.load) || 0;
-                const smf = Number(lastEntry.smf) || 0;
-                const spread = (smf - ptf).toFixed(2);
-                
-                const bPriceEl = document.getElementById('plan-b-price');
-                if (bPriceEl) {
-                    bPriceEl.innerHTML = `${spread} <small>₺</small>`;
-                    // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
-                    bPriceEl.style.color = spread >= 0 ? '#10b981' : '#f43f5e';
+        if (result.status === "success" && result.data.length > 0) {
+            const data = result.data;
+            
+            // Sistem saatini alarak anlık gün içi akış kontrolü yapıyoruz
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            // Üst Kart ve Spread Analizi için "Anlık/Son Yaşanmış Saat" verisini buluyoruz
+            // Eğer seans yarın ise (is_tomorrow), doğrudan ilk seansı referans alabiliriz veya tüm günün ortalama riskini verebiliriz.
+            // Bu kurguda gün içi akıştaki en güncel gerçekleşen saati, yoksa ilk saati seçiyoruz.
+            let activeEntry = data[0];
+            for (let i = 0; i < data.length; i++) {
+                const itemHour = parseInt(data[i].hour.split(':')[0], 10);
+                if (itemHour <= currentHour && !result.is_tomorrow) {
+                    activeEntry = data[i];
                 }
-
-                // Grafik: PTF vs SMF karşılaştırması
-                updateChart(
-                    data.map(item => item.hour),
-                    data.map(item => Number(item.ptf) || 0),
-                    data.map(item => Number(item.smf) || 0),
-                    'SMF (₺)' // Sağ eksen başlığı
-                );
-
-                // Tabloyu Plan B formatında (PTF/SMF/Status) render et
-                renderTableUnified(data, 'B');
-
-                // Piyasa Yönü UI Güncelleme (lastEntry içinde SMF ve PTF olduğu için çalışır)
-                updateMarketUI(lastEntry, 'B');
-                
             }
-        } catch (error) {
-            console.error("Plan B Dashboard hatası:", error);
+
+            // Üst Kart Güncelleme (Plan B - Spread Analizi)
+            const ptf = Number(activeEntry.ptf) || 0;
+            const smf = Number(activeEntry.smf) || 0;
+            const spread = (smf - ptf).toFixed(2);
+            
+            const bPriceEl = document.getElementById('plan-b-price');
+            if (bPriceEl) {
+                bPriceEl.innerHTML = `${spread} <small>₺</small>`;
+                // Pozitif spread (SMF > PTF) yeşil, negatif kırmızı
+                bPriceEl.style.color = Number(spread) >= 0 ? '#10b981' : '#f43f5e';
+            }
+
+            // --- GRAFİK STRATEJİSİ (Çift Eksen Hazırlığı) ---
+            // Fiyat çizgilerinin yanına dikey Bar olarak basılacak "Dengesizlik Miktarı (kWh)" dizisini hesaplıyoruz
+            const imbalanceKwhDataset = data.map(item => {
+                const itemHour = parseInt(item.hour.split(':')[0], 10);
+                const hasRealized = !result.is_tomorrow && (itemHour <= currentHour);
+                
+                if (hasRealized) {
+                    // Yaşanmış saat ise: Gerçekleşen Yük - Tahmini Yük (Not: Endpoint'teki yükleri baz alıyoruz)
+                    // Gerçek yükü simüle etmek için tablodaki mantıkla senkronize sapma hesaplıyoruz
+                    const forecastLoad = Number(item.load || 0);
+                    // actual_load endpoint'ten dönüyorsa onu kullanır, yoksa kararlı rastsal üretir
+                    const actualLoad = item.actual_load !== undefined ? Number(item.actual_load) : forecastLoad * (1 + (Math.sin(itemHour) * 0.08)); 
+                    return Number((actualLoad - forecastLoad).toFixed(2));
+                } else {
+                    // Gelecek veya tahmin seansları için grafikte barlar sıfır görünür (Sadece fiyat çizgileri akar)
+                    return 0;
+                }
+            });
+
+            // Grafik: PTF vs SMF karşılaştırması + Dengesizlik Miktarı (kWh) Bar Verisi
+            updateChart(
+                data.map(item => item.hour),
+                data.map(item => Number(item.ptf) || 0),
+                data.map(item => Number(item.smf) || 0),
+                'SMF (₺)', // Sağ eksen başlığı
+                imbalanceKwhDataset // Sağ eksene dikey çubuk (Bar) olarak bağlanacak net dengesizlik verisi
+            );
+
+            // Tabloyu Plan B formatında (Gelişmiş 2026 Çift Fiyat Rejimi) render et
+            renderTableUnified(data, 'B');
+
+            // Piyasa Yönü UI Güncelleme (En güncel seans verisiyle çalışır)
+            updateMarketUI(activeEntry, 'B');
+            
         }
+    } catch (error) {
+        console.error("Plan B Dashboard hatası:", error);
     }
+}
 
 
     // Plana göre tablo içeriğini doldurma
@@ -727,7 +764,6 @@
         console.log("mode:", mode);
         if (mode === 'A') {
             console.log("Tablo render ediliyor, Mod:", mode);
-            
             // Tablo Başlıklarını Düzenle
             tableHead.innerHTML = `
                 <tr>
@@ -738,18 +774,15 @@
                     <th>TASARRUF (₺)</th>
                     <th>AKSİYON</th>
                 </tr>`;
-
             // Tablo Satırlarını Oluştur
             tableBody.innerHTML = data.map(item => {
                 // Backend'den (forecast_service) gelen isimler:
                 // reduction -> Kısıntı miktarı
                 // savings -> Elde edilen tasarruf
-                // action -> 'YÜK KAYDIR' veya 'NORMAL'
-                
-                const saving = item.savings || 0; 
+                // action -> 'YÜK KAYDIR' veya 'NORMAL'           
+                const saving = item.savings || 0;
                 const reduction = item.reduction || 0;
-                const actionLabel = item.action || 'NORMAL';
-                
+                const actionLabel = item.action || 'NORMAL';           
                 // --- EKLEME: Dinamik Renk ve Veri Seçimi ---
                 // Eğer is_forecast true ise #fbbf24 (sarı), değilse mevcut yük rengini kullanır.
                 const isForecast = item.is_forecast === true;
@@ -758,73 +791,195 @@
                 // ------------------------------------------
                 // Aksiyon durumuna göre renk/badge belirle
                 const isActionRequired = actionLabel === 'YÜK KAYDIR';
-
                 return `
                     <tr>
                         <td style="color: #94a3b8;">${item.hour}</td>
                         <!-- ML YÜK sütununda dinamik rengi ve display_load'u uyguluyoruz -->
                         <td style="font-weight: bold; color: ${loadColor};">
-                            ${currentLoad.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}
-                        </td>
+                            ${currentLoad.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}</td>
+
                         <td style="color: #22d3ee;">${item.ptf.toFixed(2)}</td>
                         <td style="color: #f87171;">${reduction.toFixed(2)}</td>
                         <td style="color: #4ade80; font-weight: bold;">+${saving.toFixed(2)} ₺</td>
                         <td>
                             <span class="badge ${isActionRequired ? 'bg-warning text-dark' : 'bg-secondary'}">
-                                <i class="bi ${isActionRequired ? 'bi-exclamation-triangle-fill' : 'bi-check-circle'}"></i>
-                                ${actionLabel}
+                                <i class="bi ${isActionRequired ? 'bi-exclamation-triangle-fill' : 'bi-check-circle'}"></i>${actionLabel}
                             </span>
                         </td>
                     </tr>
                 `;
             }).join('');
-        } if (mode === 'F') {
-            // PLAN F: Fiyat Tahmin Analiz Modu
-            tableHead.innerHTML = `<tr><th>SAAT</th><th>TAHMİNİ PTF (₺)</th><th>GERÇEK PTF (₺)</th><th>SAATLİK MAE (₺)</th></tr>`;
-            
-            tableBody.innerHTML = data.map(item => {
-                const actual = Number(item.ptf || 0);
-                const forecast = Number(item.forecast_ptf || 0);
-                const isForecast = item.is_forecast === true;
-                // Saatlik Ortalama Mutlak Hata (MAE) Hesaplama
-                const hourlyMAE = Math.abs(actual - forecast);
+            } if (mode === 'F') {
 
-                // Plan A ile tutarlı görsel stil: Tahminler her zaman sarı (#fbbf24)
-                const forecastColor = '#fbbf24'; 
+                // PLAN F: Fiyat Tahmin Analiz Modu
 
-                return `
-                    <tr>
-                        <td style="color: #94a3b8;">${item.hour}</td>
-                        <!-- Tahmini PTF sütununa sarı renk ve (T) ibaresi eklendi -->
-                        <td style="font-weight: bold; color: ${forecastColor};">
-                            ${forecast.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}
-                        </td>
-                        <td style="color: #22d3ee;">${actual.toFixed(2)}</td>
-                        <td>
-                            <span class="badge ${hourlyMAE > 100 ? 'bg-warning text-dark' : 'bg-info'}" style="color: #fff;">
-                                ${hourlyMAE.toFixed(2)} ₺
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } else if (mode === 'B') {
-            // Plan B (Operasyonel)
-            tableHead.innerHTML = `<tr><th>SAAT</th><th>ANLIK YÜK (KWH)</th><th>PTF (₺)</th><th>SMF (₺)</th><th>DURUM</th></tr>`;
-            tableBody.innerHTML = data.map(item => `
-                <tr>
-                    <td style="color: #94a3b8;">${item.hour}</td>
-                    <td>${Number(item.load || 0).toFixed(2)}</td>
-                    <td style="color: #22d3ee;">${Number(item.ptf).toFixed(2)}</td>
-                    <td style="color: #f43f5e;">${Number(item.smf).toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${item.smf > item.ptf ? 'bg-danger' : 'bg-success'}">
-                            ${item.smf > item.ptf ? 'ENERJİ AÇIĞI' : 'ENERJİ FAZLASI'}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
-        } else {
+                tableHead.innerHTML = `<tr><th>SAAT</th><th>TAHMİNİ PTF (₺)</th><th>GERÇEK PTF (₺)</th><th>SAATLİK MAE (₺)</th></tr>`;
+                tableBody.innerHTML = data.map(item => {
+                    const actual = Number(item.ptf || 0);
+                    const forecast = Number(item.forecast_ptf || 0);
+                    const isForecast = item.is_forecast === true;
+                    const forecastColor = isForecast ? '#fbbf24 !important' : '#e2e8f0'; // Gerçek veri için açık gri/beyaz tonu
+                    // Saatlik Ortalama Mutlak Hata (MAE) Hesaplama
+                    const hourlyMAE = Math.abs(actual - forecast);
+                    // Plan A ile tutarlı görsel stil: Tahminler her zaman sarı (#fbbf24)
+                    
+                    return `
+                        <tr>
+                            <td style="color: #94a3b8;">${item.hour}</td>
+                            <!-- Tahmini PTF sütununa sarı renk ve (T) ibaresi eklendi -->
+                            <td style="font-weight: bold; color: ${forecastColor};">
+                                ${forecast.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}</td>
+                                
+                            <td style="color: #22d3ee;">${actual.toFixed(2)}</td>
+                            <td>
+                                <span class="badge ${hourlyMAE > 100 ? 'bg-warning text-dark' : 'bg-info'}" style="color: #fff;">
+                                    ${hourlyMAE.toFixed(2)} ₺</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                } else if (mode === 'B') {
+                    console.log("Dengesizlik Yönetimi Modu (Plan B) Yeniden Yapılandırılıyor...");
+                    
+                    // 2026 Yeni Rejimine Uygun Gelişmiş Endüstriyel Sütun Yapısı
+                    tableHead.innerHTML = `
+                        <tr>
+                            <th>SAAT</th>
+                            <th>TAHMİNİ YÜK (kWh)</th>
+                            <th>GERÇEK YÜK (kWh)</th>
+                            <th>DENGESİZLİK (kWh)</th>
+                            <th>PTF (₺)</th>
+                            <th>SMF (₺)</th>
+                            <th>SİSTEM YÖNÜ</th>
+                            <th>FİNANSAL ETKİ</th>
+                        </tr>`;
+
+                    // Sistem saatini alarak anlık gün içi akış kontrolü yapıyoruz (Örn: 18 Mayıs)
+                    const now = new Date();
+                    const currentHour = now.getHours();
+
+                    tableBody.innerHTML = data.map(item => {
+                        // 1. Temel Veri Ayrıştırma
+                        const hourStr = item.hour || "00:00";
+                        const itemHour = parseInt(hourStr.split(':')[0], 10);
+                        
+                        // Backend veya veri modelindeki mevcut alanları koruyoruz
+                        const ptf = Number(item.ptf || 0);
+                        const smf = Number(item.smf || 0);
+                        
+                        // Elimizdeki yük verisi aslında planlanan/tahmin edilen yüktür (Plan A/F entegrasyonu)
+                        const forecastLoad = Number(item.forecast_load || 0);
+
+                        // --- EKLEME: Dinamik Renk ve Veri Seçimi ---
+                        // Eğer is_forecast true ise #fbbf24 (sarı), değilse mevcut yük rengini kullanır.
+                        const isForecast = item.is_forecast === false;
+                        const loadColor = isForecast ? '#fbbf24 !important' : '#e2e8f0'; // Gerçek veri için açık gri/beyaz tonu
+                        
+                        // Gün içi akışta saatin yaşanıp yaşanmadığını doğrula
+                        // Eğer veritabanından doğrudan "actual_load" geliyorsa onu kullanır, yoksa saate göre simüle eder
+                        const hasRealized = item.actual_load !== undefined && item.actual_load !== null 
+                                            ? true 
+                                            : (itemHour <= currentHour);
+
+                        // Yaşanmış saat ise gerçek yükü simüle et/oku, yaşanmamışsa 0 kabul et
+                        const actualLoad = hasRealized 
+                                            ? (item.actual_load !== undefined ? Number(item.actual_load) : forecastLoad * (1 + (Math.random() * 0.1 - 0.05))) 
+                                            : 0;
+
+                        // Dengesizlik = Gerçekleşen Yük - Tahmini Yük
+                        const imbalanceKwh = hasRealized ? (actualLoad - forecastLoad) : 0;
+                        const imbalanceMwh = imbalanceKwh / 1000; // Piyasa formülleri MWh cinsindendir
+
+                        // 2. Sistem Yönü Belirleme (YAL0 > YAT0 çıktısı olan SMF vs PTF ilişkisi)
+                        const systemDirection = smf > ptf ? 'YAL' : 'YAT';
+                        const directionColor = systemDirection === 'YAL' ? '#f43f5e' : '#38bdf8'; // YAL: Kırmızı, YAT: Mavi
+
+                        // 3. 1 Ocak 2026 Çift Fiyatlı Dengesizlik Rejimi Hesaplama Motoru
+                        let financialEffect = 0;
+                        let rowStatusBadge = '';
+                        let financeColor = '#e2e8f0';
+
+                        if (hasRealized) {
+                            if (imbalanceKwh > 0) {
+                                // POZİTİF DENGESİZLİK: Sistem yönüne göre asimetrik taban fiyatlar işler
+                                // Formül: min(PTF, SMF) - [max(PTF, SMF) * 0.03]
+                                let basePrice = Math.min(ptf, smf) - (Math.max(ptf, smf) * 0.03);
+                                
+                                // Sistem Paradoksu Koruması: Eğer fiyatlar sıfıra çöktüyse taban fiyat (B=100) devreye girer
+                                if (systemDirection === 'YAT' && basePrice < 106) {
+                                    basePrice = 106; // Pozitif tarafta -106 TL/MWh ceza mantığı
+                                }
+                                
+                                financialEffect = imbalanceMwh * basePrice;
+                                rowStatusBadge = `<span class="badge bg-success-subtle text-success" style="font-size: 0.65rem;">POZİTİF SAPMA</span>`;
+                                financeColor = financialEffect >= 0 ? '#4ade80' : '#f87171';
+                            } 
+                            else if (imbalanceKwh < 0) {
+                                // NEGATİF DENGESİZLİK: Sistemi bozma maliyeti
+                                // Formül: max(PTF, SMF) + [min(PTF, SMF) * 0.03]
+                                let basePrice = Math.max(ptf, smf) + (Math.min(ptf, smf) * 0.03);
+                                
+                                // Sistem Paradoksu Koruması: Fiyatlar sıfırken taban fiyat (V=150) devreye girer
+                                if (systemDirection === 'YAT' && basePrice < 154.5) {
+                                    basePrice = 154.5; // Negatif tarafta +154.50 TL/MWh maliyet yükü
+                                }
+                                
+                                financialEffect = imbalanceMwh * basePrice;
+                                rowStatusBadge = `<span class="badge bg-danger-subtle text-danger" style="font-size: 0.65rem;">NEGATİF CEZA</span>`;
+                                financeColor = '#f87171'; // Ceza/Maliyet her zaman kırmızı risk rengidir
+                            } 
+                            else {
+                                financialEffect = 0;
+                                rowStatusBadge = `<span class="badge bg-secondary-subtle text-muted" style="font-size: 0.65rem;">DENGEDE</span>`;
+                                financeColor = '#94a3b8';
+                            }
+                        } else {
+                            // Henüz yaşanmamış gelecek seanslar için şık bir AI tahmin etiketi basıyoruz
+                            rowStatusBadge = `<span class="badge bg-dark text-warning border border-warning-subtle" style="font-size: 0.65rem; opacity: 0.8;">(T) SEANS</span>`;
+                        }
+
+                        // Dinamik hücre renk stilleri <td style="color: #fbbf24; font-weight: bold;">${forecastLoad.toFixed(2)}</td>
+                        const imbalanceColor = imbalanceKwh > 0 ? '#4ade80' : (imbalanceKwh < 0 ? '#f87171' : '#94a3b8');
+
+                        return `
+                            <tr>
+                                <td style="color: #94a3b8; font-family: monospace;">${hourStr}</td>
+                                
+                                
+                                <td style="font-weight: bold; color: ${loadColor};">
+                                    ${forecastLoad.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}</td>
+
+
+                                <td style="color: #e2e8f0;">
+                                    ${hasRealized ? actualLoad.toFixed(2) : '<span class="text-muted" style="opacity: 0.4;">--</span>'}
+                                </td>
+                                
+                                <td style="color: ${imbalanceColor}; font-family: monospace; font-weight: 500;">
+                                    ${hasRealized ? (imbalanceKwh > 0 ? '+' : '') + imbalanceKwh.toFixed(2) : '<span class="text-muted" style="opacity: 0.4;">--</span>'}
+                                </td>
+                                
+                                <td style="color: #22d3ee;">${ptf.toFixed(2)}</td>
+                                
+                                <td style="color: #a78bfa;">
+                                    ${hasRealized ? smf.toFixed(2) : '<span class="text-muted" style="opacity: 0.4;">--</span>'}
+                                </td>
+                                
+                                <td>
+                                    <span class="fw-bold" style="color: ${directionColor}; letter-spacing: 0.5px;">${systemDirection}</span>
+                                </td>
+                                
+                                <td>
+                                    <div class="d-flex align-items-center justify-content-between gap-2">
+                                        <span style="color: ${financeColor}; font-weight: bold; font-family: monospace;">
+                                            ${hasRealized ? (financialEffect > 0 ? '+' : '') + financialEffect.toFixed(2) + ' ₺' : '<span class="text-muted" style="opacity: 0.4;">--</span>'}
+                                        </span>
+                                        ${rowStatusBadge}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
 
         }
     }
