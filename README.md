@@ -1,53 +1,81 @@
 # VPP-Industrial-Alpha ⚡
-Virtual Power Plant (Sanal Güç Santrali) Optimizasyon ve Veri Yönetim Sistemi.
+Virtual Power Plant (Sanal Güç Santrali) Optimizasyon, Tahmin ve Veri Yönetim Sistemi.
+
+Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için EPİAŞ piyasa verilerini, makine öğrenmesi tabanlı yük/fiyat tahminlerini ve matematiksel optimizasyon modellerini birleştiren uçtan uca bir çözümdür.
 
 ### 🚀 Teknolojiler
-- **Backend:** FastAPI (Python)
-- **Data Engineering:** Apache Airflow
-- **Database:** PostgreSQL
-- **Cache:** Redis
-- **Containerization:** Docker & Docker Compose
-- **ML & Optimization:** Scikit-learn, PuLP
+- **Backend:** FastAPI (Python) - Asenkron, yüksek performanslı API mimarisi.
+- **Data Engineering:** Apache Airflow - Veri boru hatları ve ETL süreçlerinin orkestrasyonu.
+- **Database:** PostgreSQL (SQLAlchemy) - Zaman serisi ve ilişkisel veri yönetimi.
+- **Cache:** Redis - Hızlı dashboard yanıtları ve veri önbellekleme.
+- **Containerization:** Docker & Docker Compose - İzole ve ölçeklenebilir deployment.
+- **ML & Optimization:** Scikit-learn, XGBoost, PuLP - Tahminleme ve maliyet minimizasyonu.
+
 *******************************************************************
-* Plan A (Stratejik) ve Plan B (Reaktif) operasyon modülleri eklendi.
-* EPİAŞ PTF ve ML bazlı tüketim tahmin simülasyonu entegre edildi.
-* FastAPI backend ve Chart.js frontend veri köprüsü oluşturuldu.
-* Üretim odaklı yük kaydırma karar mekanizması eklendi.
+### 🛠 Öne Çıkan Özellikler
+
+**Çok Katmanlı Operasyon Modülleri:** Fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini), stratejik Plan A ve anlık tepki odaklı Plan B modülleri entegre edildi.
+
+- **Fiyat Tahmin (Plan F):** EPİAŞ PTF verilerini analiz ederek tahmin edilen ve gerçekleşen fiyat ortalamalarını sunar. Enerji satın alma stratejileri için finansal öngörü sağlar.
+
+- **Maliyet Optimizasyonu (Plan A):** Yük kaydırma potansiyelini (kWh ve TL bazında) hesaplar. ML tahminlerini kullanarak operasyonel verimliliği maksimize eden "Stratejik Analiz" modülünü besler.
+
+- **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.
+
+- **Kontrol Paneli & Model Metrikleri:** Sistemin "sağlık raporunu" sunar. Airflow entegrasyonu ile modelin başarı skorlarını ($R^2$, MAE, MAPE) canlı olarak izler ve tek tuşla modeli yeniden eğitme (Retrain) imkanı sunar.
+
+- **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
+
+**Single Source of Truth (SSoT):** FastAPI backend ve Chart.js frontend arasında kurulan senkronize veri köprüsü ile dashboard ve simülasyon sonuçları arasında tam tutarlılık sağlandı.
+
+**Akıllı Yük Kaydırma:** Enerji fiyatlarının tepe yaptığı saatlerdeki yükü, düşük fiyatlı veya yenilenebilir üretimin yoğun olduğu saatlere kaydıran optimizasyon motoru eklendi.
+
+**Dinamik Performans Takibi:** Model metrikleri (MAE, MAPE, RMSE, $R^2$), her yeni eğitim (Retrain) sonrasında bir önceki simülasyon sonuçlarıyla otomatik olarak kıyaslanır. İyileşme durumunda (hata oranlarının düşmesi veya model skorunun artması) değerler anlık olarak yeşil, kötüleşme durumunda ise kırmızı renkle işaretlenerek karar destek mekanizması görsel olarak güçlendirilir.
 
 ```mermaid
-graph TD
-    subgraph "1. Veri Kaynakları (Data Sources)"
-        EP["EPİAŞ Şeffaflık (PTF/SMF)"]
-        IOT["IoT Sayaç / Saha Verisi"]
-        DB_HIST["Geçmiş Tüketim DB"]
+graph LR
+    subgraph "1. Veri Kaynakları"
+        direction TB
+        EP["EPİAŞ (PTF)"]
+        IOT["IoT Sayaç"]
+        AF["Airflow ETL"]
+        REDIS[("Redis Cache")]
+        EP & IOT --> AF
     end
 
-    subgraph "2. Analitik Katman (Intelligence Layer)"
-        ML["ML Tahmin Modeli (Python/XGBoost)"]
-        OPT["Optimizasyon Motoru (Maliyet Min.)"]
-        STRAT["Strateji Karar (Plan A/B Logic)"]
+    subgraph "2. Analitik Katman"
+        direction TB
+        ML_T["Model Eğitimi"]
+        ML_F["Tahmin (Load/Fiyat)"]
+        OPT["Optimizasyon (PuLP)"]
+        ML_T --> ML_F --> OPT
     end
 
-    subgraph "3. Servis Katmanı (Backend Layer)"
-        API["FastAPI / Python"]
-        DB_SQL["PostgreSQL (SQLAlchemy)"]
-        DOCKER["Docker Container"]
+    subgraph "3. Servis Katmanı"
+        direction TB
+        API["FastAPI"]
+        DB[(PostgreSQL)]
+        SYNC["Sync Logic"]
+        CORE["VPP Logic"]
+        DB <--> API
+        SYNC --> CORE
     end
 
-    subgraph "4. Sunum Katmanı (Presentation Layer)"
-        UI["Dashboard (HTML/JS/Chart.js)"]
-        CTRL["Mod Kontrol Paneli"]
-        TBL["Operasyonel Takvim"]
+    subgraph "4. Sunum Katmanı"
+        direction TB
+        UI["Dashboard"]
+        MET["Metrikler"]
+        CH["Chart.js"]
+        UI --> MET & CH
     end
 
-    %% Veri Akışları
-    EP --> API
-    IOT --> API
-    DB_HIST --> ML
-    ML --> OPT
-    OPT --> STRAT
-    STRAT --> API
-    API <--> DB_SQL
+    %% Katmanlar Arası Yatay Akış
+    AF --> DB
+    DB --> ML_T
+    OPT --> SYNC
+    CORE --> API
     API --> UI
-    UI --> CTRL
-    CTRL --> TBL
+
+    style SYNC fill:#f96,stroke:#333,stroke-width:2px
+    style CORE fill:#bbf,stroke:#333,stroke-width:2px
+    style REDIS fill:#ff9999,stroke:#333
