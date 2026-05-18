@@ -319,42 +319,37 @@ async def get_latest_market_data_planF(db: Session = Depends(get_db)):
             ptf_results = crud.get_24h_data_by_type(db, target_date, 1, MarketData)
             predicted_ptf_results = crud.get_24h_data_by_type(db, target_date, 1, VPPForecast)
 
-        dashboard_data = []
-        # Saatlik döngü ile planA mimarisinde veri oluşturma
-        for i in range(24):
-            hour_str = f"{i:02d}:00"
+        # 4. Veri Birleştirme (mae varsayılan olarak 0.0 eklendi)
+        combined = {
+            f"{i:02d}:00": {
+                "hour": f"{i:02d}:00", 
+                "ptf": 0.0, 
+                "forecast_ptf": 0.0,
+                "mae": 0.0 # <--- Eksik olan varsayılan değer
+            } for i in range(24)
+        }
+        
+        for r in ptf_results:
+            combined[r.hour]["ptf"] = round(float(r.value), 2)
+        
+        for r in predicted_ptf_results:
+            forecast_val = round(float(r.value), 2)
+            combined[r.hour]["forecast_ptf"] = forecast_val
             
-            # Gerçek PTF verisini bul
-            actual_r = next((r for r in ptf_results if r.hour == hour_str), None)
-            actual_val = float(actual_r.value) if actual_r else 0.0
+            actual_val = combined[r.hour]["ptf"]
+            if actual_val > 0:
+                combined[r.hour]["mae"] = round(abs(actual_val - forecast_val), 2)
             
-            # Tahmin PTF verisini bul
-            forecast_r = next((r for r in predicted_ptf_results if r.hour == hour_str), None)
-            forecast_val = float(forecast_r.value) if forecast_r else 0.0
-            
-            # --- KRİTİK DÜZELTMELER ---
-            dashboard_data.append({
-                "hour": hour_str,
-                "ptf": actual_val,             # Gerçek PTF (Mavi Çizgi)
-                "forecast_ptf": forecast_val,  # Tahmin PTF (Sarı Tablo / Kırmızı Çizgi)
-                "display_ptf": actual_val if actual_val >= 0 else forecast_val,
-                "is_forecast": True,           # PLAN F'de her zaman True yaparak görseli zorla
-                "mae": round(abs(actual_val - forecast_val), 2) if actual_val > 0 else 0.0
-            })
-
-        # Metadata ve yapı planA ile senkronize edildi
+        # Return bloğu döngünün dışında olmalı
         return {
             "status": "success",
-            "metadata": {
-                "target_date": target_date.isoformat(),
-                "total_reduction_kwh": 0.0, 
-                "total_savings_tl": 0.0
-            },
-            "data": dashboard_data # Frontend artık bu yapıyı tanıyacak
+            "date": target_date.strftime('%Y-%m-%d'),
+            "is_tomorrow": target_date > datetime.now().date(),
+            "data": list(combined.values())
         }
     except Exception as e:
-        db.rollback()
-        return {"status": "error", "message": str(e)}
+            db.rollback()
+            return {"status": "error", "message": str(e)}
     
 from database_setup import get_db
 from train_model import ptf_forecasting_training, ptf_forecasting_testing
@@ -472,8 +467,7 @@ async def price_forecasting(db: Session = Depends(get_db)):
                 "ptf": ptf_val,
                 "forecast_ptf": forecast_val,
                 "display_ptf": final_ptf,
-                "is_forecast": True,  # Plan F modunda tüm tahminleri 'true' işaretle
-                "mae": abs(ptf_val - forecast_val) if ptf_val > 0 else 0                
+                "is_forecast": r.actual_ptf is None                
             })
 
         # 3. ML Performans Logu (MLModelSimulation Tablosuna)
@@ -536,7 +530,7 @@ import joblib
 import pandas as pd
 from train_model import get_model_prediction, meter_forecasting_expo_testing, meter_forecasting_lstm_testing
 @app.post("/api/v1/retrain-and-refresh-planA")
-async def retrain_and_refresh(model_type: str = "lstm", db: Session = Depends(get_db)):
+async def retrain_and_refresh(model_type: str = "expo", db: Session = Depends(get_db)):
     
     try:
         # 1. Ham tarih belirleme (Mimariyi bozmaz)
@@ -564,7 +558,7 @@ async def retrain_and_refresh(model_type: str = "lstm", db: Session = Depends(ge
 
         # 3. TAHMİNLERİ OLUŞTURMA (Loop İçinde Model Ayrımı)
         # Scaler sadece LSTM için gerekebilir
-        scaler = joblib.load("lstm_model.pkl") if model_type == "lstm" else None
+        scaler = joblib.load("lstm_scaler.pkl") if model_type == "lstm" else None
 
         latest_actual = db.query(MeterReading).filter(MeterReading.meter_id == meter_id)\
                           .order_by(MeterReading.date.desc(), MeterReading.hour.desc()).first()

@@ -19,9 +19,10 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/vpp_db
       - EPIAS_API_KEY=senin_api_anahtarin_buraya
+      - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - .:/app 
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # Veritabanı (PostgreSQL)
   db:

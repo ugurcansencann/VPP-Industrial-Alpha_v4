@@ -427,7 +427,7 @@
                                 <span class="fw-bold" style="color: #f8fafc; letter-spacing: 0.5px; font-size: 0.7rem;">
                                     <i class="fas fa-bullseye me-2" style="color: #ffffff; opacity: 0.8;"></i>MODEL SCORE (R²)
                                 </span>
-                                <span id="r2-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">0.0000</span>
+                                <span id="r2-val" class="text-white font-monospace fw-bold" style="font-size: 0.85rem;">0.00000</span>
                             </div>
                         
                             <button id="retrain-btn" onclick="retrainModel()" 
@@ -501,49 +501,51 @@
     }
 
     if (mode === 'A') {
-    try {
-        // --- BÖLÜM 1: KONTROL PANELİ VE MODEL METRİKLERİ ---
-        // Kontrol panelini görünür yap
-        const controlPanel = document.getElementById('control-panel-container');
-        if (controlPanel) controlPanel.style.display = 'block';
+        try {
+            // --- BÖLÜM 1: KONTROL PANELİ VE MODEL METRİKLERİ ---
+            // Kontrol panelini görünür yap
+            const controlPanel = document.getElementById('control-panel-container');
+            if (controlPanel) controlPanel.style.display = 'block';
 
-        // --- BÖLÜM 1: Metrikleri Getir (Dışarıdaki fonksiyonu çağırıyoruz) ---
-        await loadLastSimulationMetrics();
+            // Plan A'ye basıldığında yarının tahminleri yoksa üretilmesi için backend'i tetikliyoruz.
+            await fetch('/vpp/meter-forecasting-training', { method: 'POST' });
+            // --- BÖLÜM 1: Metrikleri Getir (Dışarıdaki fonksiyonu çağırıyoruz) ---
+            //await LastSimulationMetrics();
 
-        // --- BÖLÜM 2: PİYASA VERİLERİ VE GRAFİKLER ---
-        // 1. Tek endpoint üzerinden tüm veriyi (tahmin + optimizasyon + ptf) al
-        const response = await fetch('/api/v1/market-data/planA');
-        const result = await response.json();
+            // --- BÖLÜM 2: PİYASA VERİLERİ VE GRAFİKLER ---
+            // 1. Tek endpoint üzerinden tüm veriyi (tahmin + optimizasyon + ptf) al
+            const response = await fetch('/api/v1/market-data/planA');
+            const result = await response.json();
 
-        if (result.status === "success" && result.data) {
-            const combinedData = result.data; 
-            const metadata = result.metadata; 
+            if (result.status === "success" && result.data) {
+                const combinedData = result.data; 
+                const metadata = result.metadata; 
 
-            // 2. UI Başlık/Etiket Güncelleme
-            updatePlanALabel();
+                // 2. UI Başlık/Etiket Güncelleme
+                updatePlanALabel();
 
-            // METRİKLERİ YENİ FONKSİYONLA GÜNCELLE
-            updateSummaryMetrics(metadata);
-            // 4. GRAFİK GÜNCELLEME
-            updateChart(
-                combinedData.map(d => d.hour),
-                combinedData.map(d => d.ptf), // Tahmin edilen yük
-                combinedData.map(d => d.load),  // Piyasa fiyatı
-                'ML Sayaç Tahmini (kWh)',
-                combinedData
-            );
+                // METRİKLERİ YENİ FONKSİYONLA GÜNCELLE
+                updateSummaryMetrics(metadata);
+                // 4. GRAFİK GÜNCELLEME
+                updateChart(
+                    combinedData.map(d => d.hour),
+                    combinedData.map(d => d.ptf), // Tahmin edilen yük
+                    combinedData.map(d => d.load),  // Piyasa fiyatı
+                    'ML Sayaç Tahmini (kWh)',
+                    combinedData
+                );
 
-            // 5. TABLO GÜNCELLEME
-            // combinedData içindeki reduction, savings ve action alanlarını tabloya paslar
-            renderTableUnified(combinedData, 'A');
+                // 5. TABLO GÜNCELLEME
+                // combinedData içindeki reduction, savings ve action alanlarını tabloya paslar
+                renderTableUnified(combinedData, 'A');
 
-            // 6. SAĞ ANALİZ PANELİ (Piyatı en düşükten yükseğe sırala)
-            updateMarketUI([...combinedData].sort((a, b) => a.ptf - b.ptf), 'A');
+                // 6. SAĞ ANALİZ PANELİ (Piyatı en düşükten yükseğe sırala)
+                updateMarketUI([...combinedData].sort((a, b) => a.ptf - b.ptf), 'A');
 
-        } else {
-            console.warn("Plan A verisi alınamadı:", result.message);
-        }
-        } catch (error) {
+            } else {
+                console.warn("Plan A verisi alınamadı:", result.message);
+            }
+            } catch (error) {
             console.error("Plan A veri işleme hatası:", error);
         }
     } else if (mode === 'F'){
@@ -554,9 +556,9 @@
 
             // --- BÖLÜM 0: Tahminleri Backend'de Güncelle ---
             // Plan F'ye basıldığında yarının tahminleri yoksa üretilmesi için backend'i tetikliyoruz.
-            await fetch('/api/v1/forecast/ptf-forecast', { method: 'POST' });
+            await fetch('/vpp/ptf-forecasting-training', { method: 'POST' });
             // --- BÖLÜM 1: Metrikleri Getir (Dışarıdaki fonksiyonu çağırıyoruz) ---
-            await loadLastSimulationMetrics();
+            //await LastSimulationMetrics();
 
             const response = await fetch('/api/v1/market-data/planF');
             const result = await response.json();
@@ -565,37 +567,55 @@
 
             if (result.status === "success" && result.data.length > 0) {
                 const marketData = result.data;
-                // --- 1. EN UCUZ / EN PAHALI SAAT ANALİZİ ---
-                const sortedData_ptf = [...marketData].sort((a, b) => a.ptf - b.ptf);
-                const sortedData_forecasted_ptf = [...marketData].sort((a, b) => a.forecasted_ptf - b.forecasted_ptf);
-                //const cheapestHour = sortedData[0];
-                //const expensiveHour = sortedData[sortedData.length - 1];
-                const avgPtf = marketData.reduce((acc, curr) => acc + curr.ptf, 0) / marketData.length;
-                const avgForecasted_ptf = marketData.reduce((acc, curr) => acc + curr.forecasted_ptf, 0) / marketData.length;
-                // Üst Kart Güncelleme (Plan B - Spread Analizi)
-                const ptf = Number(marketData.ptf) || 0;
-                const forecasted_ptf = Number(marketData.forecasted_ptf) || 0;
-                
+
+               // --- 1. VERİ HAZIRLAMA ---
+                // processPriceData dizileri beklediği için tüm günün verilerini diziye alıyoruz
+                const actualPrices = marketData.map(item => Number(item.ptf) || 0);
+                const forecastPrices = marketData.map(item => Number(item.forecast_ptf) || 0);
+
+                // Ortalama hesaplamaları
+                const avgPtf = actualPrices.reduce((acc, curr) => acc + curr, 0) / actualPrices.length;
+                const avgForecasted_ptf = forecastPrices.reduce((acc, curr) => acc + curr, 0) / forecastPrices.length;
+
+                // Üst Kart Güncelleme
                 const priceForecasted = document.getElementById('avg-forecast');
                 if (priceForecasted) priceForecasted.innerHTML = `${avgForecasted_ptf.toFixed(2)} <small>₺</small>`;
                 const priceReal = document.getElementById('avg-real');
                 if (priceReal) priceReal.innerHTML = `${avgPtf.toFixed(2)} <small>₺</small>`;
 
-                processPriceData(ptf, forecasted_ptf)
-                // Grafik: PTF vs SMF karşılaştırması
+                // --- 2. METRİK HESAPLAMA VE UI GÜNCELLEME ---
+                // Burada tekil değer değil, hazırladığımız dizileri gönderiyoruz
+                processPriceData(actualPrices, forecastPrices);
+
+                // --- 3. GRAFİK VE TABLO GÜNCELLEME ---
                 updateChart(
                     marketData.map(item => item.hour),
-                    marketData.map(item => Number(item.ptf) || 0),
-                    marketData.map(item => Number(item.forecasted_ptf) || 0),
-                    'Tahmini PTF (₺)' // Sağ eksen başlığı
+                    actualPrices,
+                    forecastPrices,
+                    'Tahmini PTF (₺)',
+                    marketData
                 );
 
+                // Tabloyu çiz (renderTableUnified içinde 'F' modu kontrolü olduğu varsayılmıştır)
                 renderTableUnified(marketData, 'F');
 
+                // Market Analizi UI (En ucuz/pahalı saatler vb.)
+                const sortedData_ptf = [...marketData].sort((a, b) => a.ptf - b.ptf);
                 updateMarketUI(sortedData_ptf, 'F');
 
+                // --- 4. GLOBAL METRİKLERİ GÜNCELLE (Kıyaslama için) ---
+                // Sonraki retrain işleminde renk farkını görmek için global objeyi dolduruyoruz
+                if (lastSimulationMetrics) {
+                    currentMetrics = {
+                        mae: lastSimulationMetrics.mae,
+                        mape: lastSimulationMetrics.mape,
+                        rmse: lastSimulationMetrics.rmse,
+                        r2_score: lastSimulationMetrics.r2_score
+                    };
+                }
+
             }
-        } catch (error) {
+            } catch (error) {
             console.error("Plan F yükleme hatası:", error);
         }
     } else {
@@ -636,10 +656,14 @@
             const totalTlEl = document.getElementById('shift-total-tl');
             const avgTlEl = document.getElementById('shift-avg-tl');
             const planAPriceEl = document.getElementById('plan-a-price'); // Eski ID desteği
+
+            // toLocaleString ve toFixed öncesi mutlaka veri kontrolü yapıyoruz
+            const totalSavings = metadata.total_savings_tl || 0;
+            const avgSavings = metadata.avg_savings_tl || 0;
             
-            if (totalTlEl) totalTlEl.innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
-            if (avgTlEl) avgTlEl.innerText = metadata.avg_savings_tl.toFixed(2);
-            if (planAPriceEl) planAPriceEl.innerText = metadata.total_savings_tl.toLocaleString('tr-TR');
+            if (totalTlEl) totalTlEl.innerText = totalSavings.toLocaleString('tr-TR');
+            if (avgTlEl) avgTlEl.innerText = avgSavings.toFixed(2);
+            if (planAPriceEl) planAPriceEl.innerText = totalSavings.toLocaleString('tr-TR');
 
             console.log("Özet metrikler güncellendi:", metadata);
         } catch (error) {
@@ -756,22 +780,29 @@
             }).join('');
         } if (mode === 'F') {
             // PLAN F: Fiyat Tahmin Analiz Modu
-            tableHead.innerHTML = `<tr><th>SAAT</th><th>GERÇEK PTF (₺)</th><th>TAHMİNİ PTF (₺)</th><th>SAATLİK MAE (₺)</th></tr>`;
+            tableHead.innerHTML = `<tr><th>SAAT</th><th>TAHMİNİ PTF (₺)</th><th>GERÇEK PTF (₺)</th><th>SAATLİK MAE (₺)</th></tr>`;
             
             tableBody.innerHTML = data.map(item => {
                 const actual = Number(item.ptf || 0);
-                const forecast = Number(item.forecasted_ptf || 0);
+                const forecast = Number(item.forecast_ptf || 0);
+                const isForecast = item.is_forecast === true;
                 // Saatlik Ortalama Mutlak Hata (MAE) Hesaplama
                 const hourlyMAE = Math.abs(actual - forecast);
+
+                // Plan A ile tutarlı görsel stil: Tahminler her zaman sarı (#fbbf24)
+                const forecastColor = '#fbbf24'; 
 
                 return `
                     <tr>
                         <td style="color: #94a3b8;">${item.hour}</td>
+                        <!-- Tahmini PTF sütununa sarı renk ve (T) ibaresi eklendi -->
+                        <td style="font-weight: bold; color: ${forecastColor};">
+                            ${forecast.toFixed(2)} ${isForecast ? '<small style="font-size: 0.7em;">(T)</small>' : ''}
+                        </td>
                         <td style="color: #22d3ee;">${actual.toFixed(2)}</td>
-                        <td style="font-weight: bold; color: #fbbf24;">${forecast.toFixed(2)}</td>
                         <td>
-                            <span class="badge ${hourlyMAE > 100 ? 'bg-warning' : 'bg-info'}" style="color: #fff;">
-                                ${hourlyMAE.toFixed(2)}
+                            <span class="badge ${hourlyMAE > 100 ? 'bg-warning text-dark' : 'bg-info'}" style="color: #fff;">
+                                ${hourlyMAE.toFixed(2)} ₺
                             </span>
                         </td>
                     </tr>
@@ -972,7 +1003,7 @@
             primaryColor: '#22d3ee',   
             secondaryColor: '#f43f5e', // Rose (Plan F Tahmini)
             isSecondaryDashed: false,
-            fillPrimary: true
+            fillPrimary: false
         }
     };
 
@@ -1189,10 +1220,14 @@
         btn.disabled = true;
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> OPTIMIZING...';
+        // O anki modu belirle (Global değişkeninden veya HTML attribute'undan alabilirsin)
+        // Eğer global bir 'currentMode' değişkenin yoksa, switchMode fonksiyonunun set ettiği bir değişkeni kullanmalısın.
+        const mode = currentMode;
 
         try {
+            if(mode == 'A'){
             // 2. Backend'e istek at (Eğitim + Simülasyon + Dashboard Verisi)
-            const response = await fetch('/api/v1/retrain-and-refresh', {
+            const response = await fetch('/api/v1/retrain-and-refresh-planA', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -1242,6 +1277,68 @@
             } else {
                 alert("Optimization Error: " + result.message);
             }
+
+            } 
+            else if(mode=='F'){
+                try {
+                        // 1. Backend eğitimi tetikle
+                        const response = await fetch('/api/v1/retrain-and-refresh-planF', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        const result = await response.json();
+
+                        if (result.status === 'success' && result.metrics) {
+                            // --- A. MODEL BAŞARI METRİKLERİ GÜNCELLEME ---
+                            const newM = result.metrics;
+                            const oldM = lastSimulationMetrics;
+
+                            updateMetricUI('mae-val', newM.mae, oldM ? oldM.mae : null, " ₺", false);
+                            updateMetricUI('mape-val', newM.mape, oldM ? oldM.mape : null, "%", false);
+                            updateMetricUI('rmse-val', newM.rmse, oldM ? oldM.rmse : null, "", false);
+                            updateMetricUI('r2-val', newM.r2_score, oldM ? oldM.r2_score : null, "", true);
+
+                            // Yeni metrikleri referans olarak kaydet
+                            lastSimulationMetrics = { ...newM };
+
+                            // --- B. PANEL A (DASHBOARD) SENKRONİZASYONU ---
+                            // KRİTİK: İkinci bir fetch (planA) yapmıyoruz! 
+                            // Direkt backend'in bu işlem sonunda ürettiği taze veriyi basıyoruz.
+
+                            if (result.metadata && result.data) {
+                                // 1. Üstteki 4 ana kutuyu (Savings, Reduction vb.) güncelle
+                                updateSummaryMetrics(result.metadata);
+
+                                // 2. Tabloyu yeni gelen (display_load içeren) verilerle tazele
+                                renderTableUnified(result.data, 'F');
+
+                                // 3. Grafiği yeni tahminler ve PTF ile güncelle
+                                updateChart(
+                                    result.data.map(d => d.hour),
+                                    result.data.map(d => d.ptf),
+                                    result.data.map(d => d.display_ptf), // Backend'den gelen nihai yük
+                                    'PTF Tahmini (TL)',
+                                    result.data
+                                );
+
+                                // 4. Sağ taraftaki analiz panelini (Piyasa Durumu) güncelle
+                                updateMarketUI([...result.data].sort((a, b) => a.ptf - b.ptf), 'F');
+                            }
+
+                            console.log("Model Re-optimized and Panel A Synchronized. Simulation ID:", result.simulation_id);
+                            // Opsiyonel: alert("Model eğitildi ve Panel A verileri senkronize edildi!");
+
+                        } else {
+                            alert("Optimization Error: " + result.message);
+                        }
+                    } catch (error) {
+                        console.error("Eğitim sırasında hata oluştu:", error);
+                    } finally {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
+            }       
+        
         } catch (error) {
             console.error("Critical Retrain Error:", error);
             alert("Bağlantı hatası: Sunucuya ulaşılamıyor.");
@@ -1251,12 +1348,13 @@
             btn.innerHTML = originalText;
         }
     }
+ 
     let lastSimulationMetrics = null; // En son ekrandaki metrikleri burada tutacağız
     // Global değişken olarak mevcut metrikleri tutalım
     let currentMetrics = { mae: 0, mape: 0, rmse: 0, r2_score: 0 };
 
     // Sayfadaki mevcut metrikleri (referans için) burada tutuyoruz
-    async function loadLastSimulationMetrics() {
+    async function LastSimulationMetrics() {
         try {
             const response = await fetch('/api/v1/last-simulation-results');
             const data = await response.json();

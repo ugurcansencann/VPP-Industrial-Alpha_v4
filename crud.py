@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
 import pandas as pd
 from models import MeterReading, MarketData, VPPForecast
-from database import SessionLocal
 
 # --- METER READING FONKSİYONLARI (PLAN B / DASHBOARD) ---
 def get_readings(db: Session, meter_id: str = None, limit: int = None, days: int = None):

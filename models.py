@@ -28,13 +28,19 @@ class DataType(Base):
     data_typename = Column(String(50), unique=True, nullable=False) # PTF, LOAD, SMF
     value = Column(Integer, unique=True, nullable=False)    # 1, 2, 3
 
+class ForecastType(Base):
+    __tablename__ = "forecast_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    forecast_typename = Column(String(100), nullable=False, unique=True)
+
 class VPPMeterForecast(Base):
     __tablename__ = "vpp_meter_forecasts"
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
     hour = Column(String(5), nullable=False)
-    predicted_value = Column(Float, nullable=False) # Modelin ürettiği saf tahmin
+    value = Column(Float, nullable=False) # Modelin ürettiği saf tahmin
     meter_id = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now()) # Güncellemede tetiklenir
@@ -118,6 +124,7 @@ class MLModelSimulation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     run_date = Column(DateTime, nullable=False) # Deneyin yapıldığı an
+    forecast_typeid = Column(Integer, ForeignKey("forecast_types.id"), nullable=False)
     model_name = Column(String, nullable=False)
     model_path = Column(String, nullable=False)
     
@@ -140,3 +147,5 @@ class MLModelSimulation(Base):
     hyperparameters = Column(JSON)
     features_used = Column(JSON) # Örn: ["hour", "day_of_week", "lag_1h"]
     training_notes = Column(String)
+
+    forecast_type = relationship("ForecastType")

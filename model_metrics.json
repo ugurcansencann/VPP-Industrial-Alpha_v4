@@ -1,1 +1,1 @@
-{"mae": 1.994, "r2_score": 0.948, "mode": "baseline", "sample_size": 3000, "last_train_date": "2026-05-11 17:53"}
+{"rmse": 7.59076922143709, "mae": 4.630924369855968, "r2": 0.6122761319075765, "mape": 25.476380531109573, "mode": "baseline", "sample_size": 3240, "last_train_date": "2026-05-16 22:09"}
