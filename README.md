@@ -4,6 +4,15 @@ Virtual Power Plant (Sanal Güç Santrali) Optimizasyon, Tahmin ve Veri Yönetim
 Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için EPİAŞ piyasa verilerini, makine öğrenmesi tabanlı yük/fiyat tahminlerini ve matematiksel optimizasyon modellerini birleştiren uçtan uca bir çözümdür.
 
 ### 🚀 Teknolojiler
+**Yapay Zeka & Optimizasyon:** Scikit-learn, XGBoost ve LightGBM ile ileri dönük yük ve fiyat tahminleme modelleri; PuLP doğrusal programlama kütüphanesi ile operasyonel maliyet minimizasyonu motoru.
+**Derin Öğrenme Tabanlı Projeksiyon (Plan F):** PyTorch (CPU-Optimized) mimarisi kullanılarak, sistem belleğini yormayan ve geçmiş fiyat trendlerinden beslenen zaman serisi tahminleme altyapısı.
+**Uygulama Sunucusu (Backend):** FastAPI (Python) tabanlı, asenkron ve yüksek performanslı API veri köprüsü.
+**Veri Mühendisliği & Süreç Orkestrasyonu:** Apache Airflow ile yapay zeka modellerinin veri boru hatları (ETL), model başarı takipleri ve zamanlanmış görevlerin merkezi yönetimi.
+**Veritabanı Yönetimi:** PostgreSQL ilişkisel veritabanı yapısı ve SQLAlchemy (ORM) katmanı ile milisaniye seviyesinde zaman serisi ve piyasa verisi sorgulama yeteneği.
+**Hızlı Önbellekleme (Cache):** Redis entegrasyonu ile sık çağrılan piyasa takas fiyatları ve dashboard verilerinde sıfır gecikmeli yanıt süreleri.
+**Konteynerleştirme ve Dağıtım:** Docker & Docker Compose mimarisi sayesinde tüm platformlardan bağımsız, izole, kaynak limitleri kontrol edilebilir ve hızlı ölçeklenebilir altyapı kurulumu.
+
+**Özet**
 - **Backend:** FastAPI (Python) - Asenkron, yüksek performanslı API mimarisi.
 - **Data Engineering:** Apache Airflow - Veri boru hatları ve ETL süreçlerinin orkestrasyonu.
 - **Database:** PostgreSQL (SQLAlchemy) - Zaman serisi ve ilişkisel veri yönetimi.
