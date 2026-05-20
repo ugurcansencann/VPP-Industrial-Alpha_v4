@@ -5,7 +5,6 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 
 ### 🚀 Teknolojiler
 **Yapay Zeka & Optimizasyon:** Scikit-learn, XGBoost ve LightGBM ile ileri dönük yük ve fiyat tahminleme modelleri; PuLP doğrusal programlama kütüphanesi ile operasyonel maliyet minimizasyonu motoru.
-
 **Derin Öğrenme Tabanlı Projeksiyon (Plan F):** PyTorch (CPU-Optimized) mimarisi kullanılarak, sistem belleğini yormayan ve geçmiş fiyat trendlerinden beslenen zaman serisi tahminleme altyapısı.
 
 **Uygulama Sunucusu (Backend):** FastAPI (Python) tabanlı, asenkron ve yüksek performanslı API veri köprüsü.
