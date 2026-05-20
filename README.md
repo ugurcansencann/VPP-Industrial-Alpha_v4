@@ -15,10 +15,7 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 ### 🛠 Öne Çıkan Özellikler
 
 **Çok Katmanlı Risk ve Operasyon Yönetimi:** Tesis operasyonlarını piyasa gerçeklerine göre optimize eden; geleceğe yönelik fiyat projeksiyonu (Plan F), uzun vadeli stratejik planlama (Plan A) ve anlık dengesizlik/ceza yönetimi (Plan B) sekmeleri tek bir merkezden yönetilir.
-- **Fiyat Tahmin (Plan F):** EPİAŞ PTF verilerini analiz ederek tahmin edilen ve gerçekleşen fiyat ortalamalarını sunar. Enerji satın alma stratejileri için finansal öngörü sağlar.
-- **Maliyet Optimizasyonu (Plan A):** Yük kaydırma potansiyelini (kWh ve TL bazında) hesaplar. ML tahminlerini kullanarak operasyonel verimliliği maksimize eden "Stratejik Analiz" modülünü besler.
-- **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.
-  
+
 **Finansal Öngörü ve Stratejik Fiyatlama (Plan F):** Serbest enerji piyasasındaki fiyat dalgalanmalarını analiz ederek, tesislerin enerji satın alma maliyetlerini düşürmek için ileriye dönük fiyat ortalamaları ve finansal öngörüler sunar.
 
 **Maliyet Optimizasyonu & Tüketim Esnekliği (Plan A):** Tesisin üretim süreçlerini aksatmadan, hangi saatte ne kadarlık bir yükü kaydırabileceğini (kWh ve ₺ bazında) net olarak hesaplar. Tüketimin yoğun olduğu pik saatlerdeki maliyetleri minimize eden bir karar destek mekanizması sağlar.
