@@ -14,23 +14,24 @@ Bu platform; endüstriyel tesislerin enerji maliyetlerini minimize etmek için E
 *******************************************************************
 ### 🛠 Öne Çıkan Özellikler
 
-**Çok Katmanlı Operasyon Modülleri:** Fiyat projeksiyonu sağlayan Plan F (Fiyat Tahmini), stratejik Plan A ve anlık tepki odaklı Plan B modülleri entegre edildi.
-
+**Çok Katmanlı Risk ve Operasyon Yönetimi:** Tesis operasyonlarını piyasa gerçeklerine göre optimize eden; geleceğe yönelik fiyat projeksiyonu (Plan F), uzun vadeli stratejik planlama (Plan A) ve anlık dengesizlik/ceza yönetimi (Plan B) sekmeleri tek bir merkezden yönetilir.
 - **Fiyat Tahmin (Plan F):** EPİAŞ PTF verilerini analiz ederek tahmin edilen ve gerçekleşen fiyat ortalamalarını sunar. Enerji satın alma stratejileri için finansal öngörü sağlar.
-
 - **Maliyet Optimizasyonu (Plan A):** Yük kaydırma potansiyelini (kWh ve TL bazında) hesaplar. ML tahminlerini kullanarak operasyonel verimliliği maksimize eden "Stratejik Analiz" modülünü besler.
-
 - **Dengesizlik Yönetimi (Plan B):** "Response" modu olarak da adlandırılır. Anlık spread değerlerini ve saha sapmalarını takip ederek, reaktif aksiyonlarla finansal riskleri minimize eder.
+  
+**Finansal Öngörü ve Stratejik Fiyatlama (Plan F):** Serbest enerji piyasasındaki fiyat dalgalanmalarını analiz ederek, tesislerin enerji satın alma maliyetlerini düşürmek için ileriye dönük fiyat ortalamaları ve finansal öngörüler sunar.
 
-- **Kontrol Paneli & Model Metrikleri:** Sistemin "sağlık raporunu" sunar. Airflow entegrasyonu ile modelin başarı skorlarını ($R^2$, MAE, MAPE) canlı olarak izler ve tek tuşla modeli yeniden eğitme (Retrain) imkanı sunar.
+**Maliyet Optimizasyonu & Tüketim Esnekliği (Plan A):** Tesisin üretim süreçlerini aksatmadan, hangi saatte ne kadarlık bir yükü kaydırabileceğini (kWh ve ₺ bazında) net olarak hesaplar. Tüketimin yoğun olduğu pik saatlerdeki maliyetleri minimize eden bir karar destek mekanizması sağlar.
 
-- **Gelişmiş Tahmin Simülasyonu:** EPİAŞ PTF verileri ve ML tabanlı tüketim tahminleri kullanılarak "Rolling Forecast" mekanizması oluşturuldu.
+**Anlık Dengesizlik ve Reaktif Operasyon Yönetimi (Plan B):** Gerçek zamanlı saha sayaç verileri ile piyasa fiyatlarını (PTF vs. SMF) eşzamanlı analiz eder. Tesisin şebekeye karşı yarattığı enerji açığı veya fazlasını bularak, oluşabilecek finansal cezaları anlık olarak kümülatif maliyet yönetimiyle raporlar.
 
-**Single Source of Truth (SSoT):** FastAPI backend ve Chart.js frontend arasında kurulan senkronize veri köprüsü ile dashboard ve simülasyon sonuçları arasında tam tutarlılık sağlandı.
+**Akıllı Piyasa Yönü ve Ceza Radarı (yal0 / yat0 Kestirimi):** Piyasa takas fiyatlarının henüz kesinleşmediği kör saatlerde, şebekenin yönünü (enerji açığı veya fazlası durumunu) otomatik tahmin ederek operasyon ekibine erkenden aksiyon alma ve arbitraj fırsatlarını yakalama imkanı tanır.
 
-**Akıllı Yük Kaydırma:** Enerji fiyatlarının tepe yaptığı saatlerdeki yükü, düşük fiyatlı veya yenilenebilir üretimin yoğun olduğu saatlere kaydıran optimizasyon motoru eklendi.
+**Gelişmiş Görsel Karar Destek Mekanizması:** Fiyat hareketleri ile sahadaki sapma miktarlarını (kWh) aynı grafikte hibrit olarak birleştirir. Enerji açığı (mali ceza riski) oluşturan saatleri dinamik olarak kırmızı, enerji fazlası (fırsat) yaratan saatleri ise yeşil dikey barlarla işaretleyerek operatörün hata yapma riskini sıfıra indirir.
 
-**Dinamik Performans Takibi:** Model metrikleri (MAE, MAPE, RMSE, $R^2$), her yeni eğitim (Retrain) sonrasında bir önceki simülasyon sonuçlarıyla otomatik olarak kıyaslanır. İyileşme durumunda (hata oranlarının düşmesi veya model skorunun artması) değerler anlık olarak yeşil, kötüleşme durumunda ise kırmızı renkle işaretlenerek karar destek mekanizması görsel olarak güçlendirilir.
+**Merkezi İzleme & Tek Tuşla Yeniden Optimizasyon:** Yapay zeka modellerinin ticari başarı skorlarını (MAE, MAPE, $R^2$) ve sistemin genel sağlık raporunu tek bir ekranda toplar. Değişen piyasa koşullarına göre modellerin tek tuşla arka planda yeniden eğitilmesini ve kendini güncellemesini sağlar.
+
+**Dinamik Performans ve Başarı Kıyaslaması:** Yapay zeka modelinin tahmin doğruluğu her güncellemede otomatik olarak kontrol edilir. Model kalitesindeki iyileşmeler (maliyet tasarruf potansiyelinin artması veya hata oranlarının düşmesi) ekranda anlık olarak yeşil, sapmalar ise kırmızı renkle vurgulanarak ticari risk takibi şeffaflaştırılır.
 
 ```mermaid
 graph LR
